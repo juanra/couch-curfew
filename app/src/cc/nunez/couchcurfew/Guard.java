@@ -56,6 +56,8 @@ final class Guard {
     /** Packages Android refuses to suspend (the Play Store); for those, sending the TV home is the only block. */
     private final Set<String> unsuspendable = java.util.Collections.synchronizedSet(new HashSet<String>());
     private final Set<String> warned = new HashSet<>();
+    /** The dialog message each package was last suspended with; empty after a restart, so the first apply sets them all. */
+    private final java.util.Map<String, String> suspendedWith = new java.util.concurrent.ConcurrentHashMap<>();
 
     private AccessibilityService service;
     private String foreground = "";
@@ -142,8 +144,8 @@ final class Guard {
     private void kick(final String pkg) {
         Log.i(TAG, "blocked: " + pkg);
         if (service != null) service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME);
+        toast(message(pkg));
         boolean outOfTime = budget.limits.containsKey(pkg);
-        toast(outOfTime ? app.getString(R.string.time_up, label(pkg)) : app.getString(R.string.blocked_kids));
         if (outOfTime && SAFE_PACKAGE.matcher(pkg).matches()) {
             adbThread.execute(() -> {
                 try (Adb adb = Adb.connect(app, 15_000, null)) {
@@ -155,9 +157,17 @@ final class Guard {
         }
     }
 
+    /** What a kid sees on a blocked app: in the toast, and in Android's dialog when they open a suspended app. */
+    private String message(String pkg) {
+        Integer limit = budget.limits.get(pkg);
+        int id = limit == null ? R.string.msg_parents_only : limit == 0 ? R.string.msg_not_allowed : R.string.msg_time_up;
+        return app.getString(id);
+    }
+
     /** Suspends what must be blocked and resumes what this app suspended and no longer must be. `done` runs after, on the ADB thread. */
     void reconcile(final Runnable done) {
-        final Set<String> desired = blockedNow();
+        final java.util.Map<String, String> desired = new java.util.HashMap<>();
+        for (String p : blockedNow()) desired.put(p, message(p));
         adbThread.execute(() -> {
             try {
                 apply(desired);
@@ -167,17 +177,24 @@ final class Guard {
         });
     }
 
-    private void apply(Set<String> desired) {
+    private void apply(java.util.Map<String, String> desired) {
         Set<String> suspended = store.suspended();
         List<String> suspend = new ArrayList<>(), resume = new ArrayList<>();
-        for (String p : desired) if (!suspended.contains(p) && !unsuspendable.contains(p) && SAFE_PACKAGE.matcher(p).matches()) suspend.add(p);
-        for (String p : suspended) if (!desired.contains(p) && SAFE_PACKAGE.matcher(p).matches()) resume.add(p);
+        // Suspending again an app that is already suspended just replaces its message.
+        for (java.util.Map.Entry<String, String> e : desired.entrySet()) {
+            String p = e.getKey();
+            boolean current = suspended.contains(p) && e.getValue().equals(suspendedWith.get(p));
+            if (!current && !unsuspendable.contains(p) && SAFE_PACKAGE.matcher(p).matches()) suspend.add(p);
+        }
+        for (String p : suspended) if (!desired.containsKey(p) && SAFE_PACKAGE.matcher(p).matches()) resume.add(p);
         if (suspend.isEmpty() && resume.isEmpty()) return;
         try (Adb adb = Adb.connect(app, 15_000, null)) {
             for (String p : suspend) {
-                String out = adb.shell("pm suspend --user 0 " + p);
-                if (out.contains("suspended state: true")) suspended.add(p);
-                else {
+                String out = adb.shell("pm suspend --user 0 --dialogMessage " + shellQuote(desired.get(p)) + " " + p);
+                if (out.contains("suspended state: true")) {
+                    suspended.add(p);
+                    suspendedWith.put(p, desired.get(p));
+                } else {
                     unsuspendable.add(p);
                     Log.w(TAG, "Android won't suspend " + p + ": " + out.trim());
                 }
@@ -185,6 +202,7 @@ final class Guard {
             for (String p : resume) {
                 adb.shell("pm unsuspend --user 0 " + p);
                 suspended.remove(p);
+                suspendedWith.remove(p);
             }
             store.suspended(suspended);
             adbErrorShown = false;
@@ -291,6 +309,11 @@ final class Guard {
         } catch (PackageManager.NameNotFoundException e) {
             return pkg;
         }
+    }
+
+    /** One shell word: single quotes, with any single quote inside closed, escaped and reopened. */
+    static String shellQuote(String s) {
+        return "'" + s.replace("'", "'\\''") + "'";
     }
 
     private void toast(final String text) {

@@ -3,8 +3,6 @@
     <string name="app_name">Couch Curfew</string>
     <string name="service_description">Couch Curfew sees which app is open, only its name, to count its time in kids mode and send the TV home when time is up. It never reads what is on screen.</string>
     <string name="one_minute_left">1 minute left on %s</string>
-    <string name="time_up">Time is up for %s today</string>
-    <string name="blocked_kids">Not available in kids mode</string>
     <string name="adb_unreachable">Couch Curfew can\'t reach the TV\'s ADB: %s</string>
     <string name="enter_pin">Parent PIN</string>
     <string name="create_pin">Create a parent PIN (4 to 8 digits)</string>
@@ -45,4 +43,7 @@
     <string name="until_manual">Changed by hand until %s.</string>
     <string name="until_schedule">The schedule changes it on %s.</string>
     <string name="not_allowed">Not allowed in kids mode</string>
+    <string name="msg_time_up">Time\'s up for this app today. If you need more, ask your parents.</string>
+    <string name="msg_not_allowed">You can\'t use this app yet. If you need it, ask your parents.</string>
+    <string name="msg_parents_only">This part of the TV is for your parents only.</string>
 </resources>

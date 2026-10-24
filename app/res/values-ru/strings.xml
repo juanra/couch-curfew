@@ -4,8 +4,6 @@
     <string name="app_name">Couch Curfew</string>
     <string name="service_description">Couch Curfew видит, какое приложение открыто, только его название, чтобы считать время в детском режиме и возвращать на главный экран, когда время вышло. Он никогда не читает содержимое экрана.</string>
     <string name="one_minute_left">Осталась 1 минута в %s</string>
-    <string name="time_up">Время для %s на сегодня закончилось</string>
-    <string name="blocked_kids">Недоступно в детском режиме</string>
     <string name="adb_unreachable">Couch Curfew не может подключиться к ADB телевизора: %s</string>
     <string name="enter_pin">Родительский PIN</string>
     <string name="create_pin">Создайте родительский PIN (от 4 до 8 цифр)</string>
@@ -46,4 +44,7 @@
     <string name="until_manual">Изменено вручную до %s.</string>
     <string name="until_schedule">Расписание изменит его %s.</string>
     <string name="not_allowed">Запрещено в детском режиме</string>
+    <string name="msg_time_up">Время для этого приложения на сегодня закончилось. Если нужно ещё, попроси родителей.</string>
+    <string name="msg_not_allowed">Тебе пока нельзя пользоваться этим приложением. Если оно нужно, попроси родителей.</string>
+    <string name="msg_parents_only">Эта часть телевизора только для родителей.</string>
 </resources>

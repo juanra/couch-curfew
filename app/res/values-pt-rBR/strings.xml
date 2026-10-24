@@ -4,8 +4,6 @@
     <string name="app_name">Couch Curfew</string>
     <string name="service_description">O Couch Curfew vê qual app está aberto, só o nome, para contar o tempo no modo infantil e voltar para o início quando o tempo acaba. Nunca lê o que está na tela.</string>
     <string name="one_minute_left">Falta 1 minuto de %s</string>
-    <string name="time_up">Acabou o tempo de %s por hoje</string>
-    <string name="blocked_kids">Indisponível no modo infantil</string>
     <string name="adb_unreachable">O Couch Curfew não consegue acessar o ADB da TV: %s</string>
     <string name="enter_pin">PIN dos pais</string>
     <string name="create_pin">Crie um PIN dos pais (4 a 8 dígitos)</string>
@@ -46,4 +44,7 @@
     <string name="until_manual">Alterado manualmente até %s.</string>
     <string name="until_schedule">O horário muda em %s.</string>
     <string name="not_allowed">Bloqueado no modo infantil</string>
+    <string name="msg_time_up">O tempo deste app acabou por hoje. Se precisar de mais, peça aos seus pais.</string>
+    <string name="msg_not_allowed">Você ainda não pode usar este app. Se precisar dele, peça aos seus pais.</string>
+    <string name="msg_parents_only">Esta parte da TV é só para os seus pais.</string>
 </resources>

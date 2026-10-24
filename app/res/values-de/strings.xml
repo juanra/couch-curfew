@@ -4,8 +4,6 @@
     <string name="app_name">Couch Curfew</string>
     <string name="service_description">Couch Curfew sieht, welche App geöffnet ist, nur ihren Namen, um im Kindermodus ihre Zeit zu zählen und zum Startbildschirm zu wechseln, wenn die Zeit abgelaufen ist. Bildschirminhalte liest es nie.</string>
     <string name="one_minute_left">Noch 1 Minute für %s</string>
-    <string name="time_up">Die Zeit für %s ist heute abgelaufen</string>
-    <string name="blocked_kids">Im Kindermodus nicht verfügbar</string>
     <string name="adb_unreachable">Couch Curfew erreicht das ADB des Fernsehers nicht: %s</string>
     <string name="enter_pin">Eltern-PIN</string>
     <string name="create_pin">Eltern-PIN erstellen (4 bis 8 Ziffern)</string>
@@ -46,4 +44,7 @@
     <string name="until_manual">Von Hand geändert bis %s.</string>
     <string name="until_schedule">Der Zeitplan ändert ihn am %s.</string>
     <string name="not_allowed">Im Kindermodus gesperrt</string>
+    <string name="msg_time_up">Die Zeit für diese App ist heute vorbei. Wenn du mehr brauchst, frag deine Eltern.</string>
+    <string name="msg_not_allowed">Du darfst diese App noch nicht benutzen. Wenn du sie brauchst, frag deine Eltern.</string>
+    <string name="msg_parents_only">Dieser Teil des Fernsehers ist nur für deine Eltern.</string>
 </resources>

@@ -4,8 +4,6 @@
     <string name="app_name">Couch Curfew</string>
     <string name="service_description">Couch Curfew voit quelle appli est ouverte, seulement son nom, pour compter son temps en mode enfants et revenir à l’accueil quand le temps est écoulé. Il ne lit jamais ce qui est à l’écran.</string>
     <string name="one_minute_left">Plus qu’une minute sur %s</string>
-    <string name="time_up">Temps écoulé pour %s aujourd’hui</string>
-    <string name="blocked_kids">Indisponible en mode enfants</string>
     <string name="adb_unreachable">Couch Curfew n’arrive pas à joindre l’ADB du téléviseur : %s</string>
     <string name="enter_pin">PIN parental</string>
     <string name="create_pin">Créez un PIN parental (4 à 8 chiffres)</string>
@@ -46,4 +44,7 @@
     <string name="until_manual">Modifié à la main jusqu’à %s.</string>
     <string name="until_schedule">L’horaire le change %s.</string>
     <string name="not_allowed">Interdite en mode enfants</string>
+    <string name="msg_time_up">Le temps pour cette appli est écoulé aujourd\'hui. Si tu as besoin de plus, demande à tes parents.</string>
+    <string name="msg_not_allowed">Tu ne peux pas encore utiliser cette appli. Si tu en as besoin, demande à tes parents.</string>
+    <string name="msg_parents_only">Cette partie du téléviseur est réservée à tes parents.</string>
 </resources>
