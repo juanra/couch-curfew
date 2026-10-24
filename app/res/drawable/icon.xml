@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A crescent moon over a couch. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#1E2340" android:pathData="M0,0h108v108h-108z" />
+    <path android:fillColor="#F4D35E" android:pathData="M62,18a18,18 0,1 0,18 26a14,14 0,1 1,-18 -26z" />
+    <path android:fillColor="#E07A5F" android:pathData="M24,62h60a6,6 0,0 1,6 6v14h-72v-14a6,6 0,0 1,6 -6z" />
+    <path android:fillColor="#C0583F" android:pathData="M28,82h8v8h-8zM72,82h8v8h-8z" />
+</vector>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Couch Curfew</string>
+    <string name="service_description">Couch Curfew ve qué app está abierta, solo su nombre, para contar su tiempo en modo niños y volver al inicio cuando se acaba. Nunca lee lo que hay en pantalla.</string>
+    <string name="one_minute_left">Queda 1 minuto de %s</string>
+    <string name="time_up">Se acabó el tiempo de %s por hoy</string>
+    <string name="blocked_kids">No disponible en modo niños</string>
+    <string name="adb_unreachable">Couch Curfew no llega al ADB de la TV: %s</string>
+    <string name="enter_pin">PIN de padres</string>
+    <string name="create_pin">Crea un PIN de padres (4 a 8 dígitos)</string>
+    <string name="confirm_pin">Escribe el PIN otra vez</string>
+    <string name="pin_bad">El PIN debe tener de 4 a 8 dígitos</string>
+    <string name="pin_mismatch">Los PIN no coinciden</string>
+    <string name="pin_wrong">PIN incorrecto</string>
+    <string name="pin_wait">Demasiados intentos. Prueba de nuevo en %d s</string>
+    <string name="pin_changed">PIN cambiado</string>
+    <string name="change_pin">Cambiar PIN</string>
+    <string name="kids_on">Modo niños: ACTIVADO (aplican los límites, Ajustes y Play Store bloqueados)</string>
+    <string name="kids_off">Modo niños: desactivado</string>
+    <string name="setup_ok">Configuración: lista</string>
+    <string name="setup_needed">Falta configurar: conectar al ADB de la TV y activar el servicio</string>
+    <string name="setup_connecting">Conectando al ADB de la TV…</string>
+    <string name="setup_waiting">En la TV, permite la depuración USB para Couch Curfew (marca \"Permitir siempre\").</string>
+    <string name="setup_done">Listo</string>
+    <string name="setup_failed">Falló la configuración: %s</string>
+    <string name="no_limit">Sin límite</string>
+    <string name="minutes">%d min al día</string>
+    <string name="limit_state">%1$d min al día, quedan %2$d hoy</string>
+    <string name="extra_today">+30 min solo hoy</string>
+</resources>

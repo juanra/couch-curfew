@@ -1,0 +1,5 @@
+out/
+*.apk
+*.idsig
+*.keystore
+.DS_Store

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Couch Curfew</string>
+    <string name="service_description">Couch Curfew sees which app is open, only its name, to count its time in kids mode and send the TV home when time is up. It never reads what is on screen.</string>
+    <string name="one_minute_left">1 minute left on %s</string>
+    <string name="time_up">Time is up for %s today</string>
+    <string name="blocked_kids">Not available in kids mode</string>
+    <string name="adb_unreachable">Couch Curfew can\'t reach the TV\'s ADB: %s</string>
+    <string name="enter_pin">Parent PIN</string>
+    <string name="create_pin">Create a parent PIN (4 to 8 digits)</string>
+    <string name="confirm_pin">Enter the PIN again</string>
+    <string name="pin_bad">The PIN must be 4 to 8 digits</string>
+    <string name="pin_mismatch">The PINs don\'t match</string>
+    <string name="pin_wrong">Wrong PIN</string>
+    <string name="pin_wait">Too many tries. Try again in %d s</string>
+    <string name="pin_changed">PIN changed</string>
+    <string name="change_pin">Change PIN</string>
+    <string name="kids_on">Kids mode: ON (limits apply, Settings and Play Store locked)</string>
+    <string name="kids_off">Kids mode: off</string>
+    <string name="setup_ok">Setup: ready</string>
+    <string name="setup_needed">Setup needed: connect to the TV\'s ADB and turn on the service</string>
+    <string name="setup_connecting">Connecting to the TV\'s ADB…</string>
+    <string name="setup_waiting">On the TV, allow USB debugging for Couch Curfew (check \"Always allow\").</string>
+    <string name="setup_done">Ready</string>
+    <string name="setup_failed">Setup failed: %s</string>
+    <string name="no_limit">No limit</string>
+    <string name="minutes">%d min a day</string>
+    <string name="limit_state">%1$d min a day, %2$d left today</string>
+    <string name="extra_today">+30 min today only</string>
+</resources>
