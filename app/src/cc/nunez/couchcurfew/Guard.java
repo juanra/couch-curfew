@@ -90,6 +90,7 @@ final class Guard {
         if (pkg.equals(foreground)) return;
         commit();
         foreground = pkg;
+        if (budget.limits.containsKey(pkg)) Log.i(TAG, "in front: " + pkg + (store.kidsMode() ? ", counting" : ", kids mode off"));
         if (blockedNow().contains(pkg)) kick(pkg);
     }
 
@@ -138,6 +139,7 @@ final class Guard {
 
     /** Back to the home screen, and the app closed if it is out of time. */
     private void kick(final String pkg) {
+        Log.i(TAG, "blocked: " + pkg);
         if (service != null) service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME);
         boolean outOfTime = budget.limits.containsKey(pkg);
         toast(outOfTime ? app.getString(R.string.time_up, label(pkg)) : app.getString(R.string.blocked_kids));

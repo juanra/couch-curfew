@@ -31,4 +31,5 @@
     <string name="left_today">Quedan %d min hoy</string>
     <string name="out_today">Se acabó el tiempo de hoy</string>
     <string name="extra_today">+30 min hoy</string>
+    <string name="counts_in_kids_mode">Solo cuenta en modo niños</string>
 </resources>

@@ -55,6 +55,8 @@ public class MainActivity extends Activity {
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(56), dp(36), dp(56), dp(36));
+        content.setClipChildren(false);
+        content.setClipToPadding(false);
         ScrollView scroll = new ScrollView(this);
         scroll.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{SKY_TOP, SKY_BOTTOM}));
         scroll.setFillViewport(true);
@@ -159,6 +161,7 @@ public class MainActivity extends Activity {
         // Header: icon, name and the kids mode switch.
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setClipChildren(false);
         ImageView logo = new ImageView(this);
         logo.setImageResource(R.drawable.icon);
         header.addView(logo, new LinearLayout.LayoutParams(dp(56), dp(56)));
@@ -167,9 +170,9 @@ public class MainActivity extends Activity {
         header.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         TextView kidsSwitch = pill(getString(kids ? R.string.kids_mode_on : R.string.kids_mode_off), kids ? GREEN : 0x33FFFFFF,
                 kids ? SKY_BOTTOM : Color.WHITE, KIDS, () -> {
-                    guard.store.kidsMode(!kids);
-                    guard.reconcile(null);
-                    refresh();
+                    // Kids mode without setup would show limits that nothing enforces: set up first, then turn it on.
+                    if (!kids && !guard.serviceEnabled()) setup(() -> setKidsMode(true));
+                    else setKidsMode(!kids);
                 });
         kidsSwitch.setTextSize(20);
         header.addView(kidsSwitch);
@@ -180,7 +183,7 @@ public class MainActivity extends Activity {
 
         // Without the service nothing is enforced: say so before anything else.
         if (!ready) {
-            TextView warning = pill(getString(R.string.setup_needed), CORAL, Color.WHITE, SETUP, this::setup);
+            TextView warning = pill(getString(R.string.setup_needed), CORAL, Color.WHITE, SETUP, () -> setup(null));
             warning.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.bottomMargin = dp(20);
@@ -189,19 +192,22 @@ public class MainActivity extends Activity {
 
         // A card per app.
         content.addView(sectionTitle(getString(R.string.apps_title)));
-        int columns = Math.max(2, (getResources().getDisplayMetrics().widthPixels - dp(112)) / dp(216));
+        int available = getResources().getDisplayMetrics().widthPixels - dp(112);
+        int columns = Math.max(2, available / dp(200));
+        int cardWidth = available / columns - dp(16);
         GridLayout grid = new GridLayout(this);
         grid.setColumnCount(columns);
         grid.setClipChildren(false);
-        for (ResolveInfo app : tvApps()) grid.addView(card(app, today));
+        for (ResolveInfo app : tvApps()) grid.addView(card(app, today, cardWidth, kids));
         content.addView(grid);
         guard.store.saveBudget(guard.budget);
 
         // Footer.
         LinearLayout footer = new LinearLayout(this);
         footer.setGravity(Gravity.END);
+        footer.setClipChildren(false);
         footer.setPadding(0, dp(24), 0, 0);
-        if (ready) footer.addView(pill(getString(R.string.setup_ok), 0x33FFFFFF, Color.WHITE, SETUP, this::setup));
+        if (ready) footer.addView(pill(getString(R.string.setup_ok), 0x33FFFFFF, Color.WHITE, SETUP, () -> setup(null)));
         TextView pin = pill(getString(R.string.change_pin), 0x33FFFFFF, Color.WHITE, PIN, () -> newPin(() -> {
             Toast.makeText(this, R.string.pin_changed, Toast.LENGTH_SHORT).show();
             refresh();
@@ -216,10 +222,11 @@ public class MainActivity extends Activity {
     }
 
     /** The app's banner (or icon), its name, its limit and a bar of today's time. */
-    private View card(ResolveInfo app, String today) {
+    private View card(ResolveInfo app, String today, int width, boolean counting) {
         final String pkg = app.activityInfo.packageName;
         PackageManager pm = getPackageManager();
         Integer limit = guard.budget.limits.get(pkg);
+        int inner = width - dp(28);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -235,12 +242,13 @@ public class MainActivity extends Activity {
         clip.setCornerRadius(dp(10));
         image.setBackground(clip);
         image.setClipToOutline(true);
-        card.addView(image, new LinearLayout.LayoutParams(dp(160), dp(90)));
+        card.addView(image, new LinearLayout.LayoutParams(inner, inner * 9 / 16));
 
         TextView name = text(guard.label(pkg), 17, Color.WHITE, true);
         name.setSingleLine(true);
+        name.setEllipsize(android.text.TextUtils.TruncateAt.END);
         name.setPadding(0, dp(10), 0, 0);
-        card.addView(name, new LinearLayout.LayoutParams(dp(160), ViewGroup.LayoutParams.WRAP_CONTENT));
+        card.addView(name, new LinearLayout.LayoutParams(inner, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         if (limit == null) {
             card.addView(text(getString(R.string.no_limit), 14, MUTED, false));
@@ -251,16 +259,19 @@ public class MainActivity extends Activity {
             ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
             bar.setMax(total);
             bar.setProgress((int) (total - leftMin));
-            int color = leftMin == 0 ? CORAL : leftMin * 4 <= total ? MOON : GREEN;
+            int color = !counting ? MUTED : leftMin == 0 ? CORAL : leftMin * 4 <= total ? MOON : GREEN;
             bar.setProgressTintList(ColorStateList.valueOf(color));
             bar.setProgressBackgroundTintList(ColorStateList.valueOf(0x40FFFFFF));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(160), dp(8));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(inner, dp(8));
             lp.topMargin = dp(8);
             card.addView(bar, lp);
-            card.addView(text(leftMin == 0 ? getString(R.string.out_today) : getString(R.string.left_today, leftMin), 13, color, false));
+            String state = !counting ? getString(R.string.counts_in_kids_mode)
+                    : leftMin == 0 ? getString(R.string.out_today) : getString(R.string.left_today, leftMin);
+            card.addView(text(state, 13, color, false));
         }
 
         GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+        lp.width = width;
         lp.setMargins(0, 0, dp(16), dp(16));
         card.setLayoutParams(lp);
         return card;
@@ -318,12 +329,21 @@ public class MainActivity extends Activity {
         refresh();
     }
 
-    private void setup() {
+    private void setKidsMode(boolean on) {
+        android.util.Log.i(Guard.TAG, "kids mode " + (on ? "on" : "off"));
+        guard.store.kidsMode(on);
+        guard.reconcile(null);
+        refresh();
+    }
+
+    /** Connects to the TV's ADB and turns the service on; `then` runs only if that worked. */
+    private void setup(final Runnable then) {
         final AlertDialog waiting = new AlertDialog.Builder(this).setMessage(R.string.setup_connecting).setCancelable(false).show();
         guard.setup(() -> runOnUiThread(() -> waiting.setMessage(getString(R.string.setup_waiting))), error -> {
             waiting.dismiss();
             Toast.makeText(this, error == null ? getString(R.string.setup_done) : getString(R.string.setup_failed, error),
                     Toast.LENGTH_LONG).show();
+            if (error == null && then != null) then.run();
             // The service shows up as enabled a moment after the setting changes.
             content.postDelayed(this::refresh, 1500);
         });

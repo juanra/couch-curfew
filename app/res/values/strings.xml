@@ -31,4 +31,5 @@
     <string name="left_today">%d min left today</string>
     <string name="out_today">Time is up for today</string>
     <string name="extra_today">+30 min today</string>
+    <string name="counts_in_kids_mode">Counts only in kids mode</string>
 </resources>
