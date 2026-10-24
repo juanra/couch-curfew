@@ -45,4 +45,5 @@
     <string name="every_day">Каждый день</string>
     <string name="until_manual">Изменено вручную до %s.</string>
     <string name="until_schedule">Расписание изменит его %s.</string>
+    <string name="not_allowed">Запрещено в детском режиме</string>
 </resources>

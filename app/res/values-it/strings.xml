@@ -45,4 +45,5 @@
     <string name="every_day">Tutti i giorni</string>
     <string name="until_manual">Cambiata a mano fino a %s.</string>
     <string name="until_schedule">L’orario la cambia %s.</string>
+    <string name="not_allowed">Bloccata in modalità bambini</string>
 </resources>

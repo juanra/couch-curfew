@@ -327,10 +327,12 @@ public class MainActivity extends Activity {
 
         if (limit == null) {
             card.addView(text(getString(R.string.no_limit), 14, MUTED, false));
+        } else if (limit == 0 && extra(pkg) == 0) {
+            card.addView(text(getString(R.string.not_allowed), 14, counting ? CORAL : MUTED, false));
         } else {
             long leftMin = (guard.budget.remainingMs(pkg, today) + Budget.MINUTE - 1) / Budget.MINUTE;
             int total = limit + extra(pkg);
-            card.addView(text(getString(R.string.minutes, limit), 14, MUTED, false));
+            card.addView(text(limit == 0 ? getString(R.string.not_allowed) : getString(R.string.minutes, limit), 14, MUTED, false));
             ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
             bar.setMax(total);
             bar.setProgress((int) (total - leftMin));
@@ -378,16 +380,18 @@ public class MainActivity extends Activity {
     private void pickLimit(final String pkg) {
         final String today = Guard.today();
         Integer limit = guard.budget.limits.get(pkg);
-        String[] items = new String[LIMITS.length + 1];
+        // No limit, blocked (a limit of 0), then the minutes.
+        String[] items = new String[LIMITS.length + 2];
         items[0] = getString(R.string.no_limit);
-        int checked = 0;
+        items[1] = getString(R.string.not_allowed);
+        int checked = limit == null ? 0 : limit == 0 ? 1 : 0;
         for (int i = 0; i < LIMITS.length; i++) {
-            items[i + 1] = getString(R.string.minutes, LIMITS[i]);
-            if (limit != null && limit == LIMITS[i]) checked = i + 1;
+            items[i + 2] = getString(R.string.minutes, LIMITS[i]);
+            if (limit != null && limit == LIMITS[i]) checked = i + 2;
         }
         AlertDialog.Builder dialog = new AlertDialog.Builder(this).setTitle(guard.label(pkg))
                 .setSingleChoiceItems(items, checked, (d, which) -> {
-                    guard.budget.setLimit(pkg, which == 0 ? 0 : LIMITS[which - 1]);
+                    guard.budget.setLimit(pkg, which == 0 ? Budget.NO_LIMIT : which == 1 ? 0 : LIMITS[which - 2]);
                     changed();
                     d.dismiss();
                 });

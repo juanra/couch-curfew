@@ -44,4 +44,5 @@
     <string name="every_day">Every day</string>
     <string name="until_manual">Changed by hand until %s.</string>
     <string name="until_schedule">The schedule changes it on %s.</string>
+    <string name="not_allowed">Not allowed in kids mode</string>
 </resources>

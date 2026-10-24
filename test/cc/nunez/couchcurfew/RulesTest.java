@@ -40,8 +40,17 @@ public class RulesTest {
         check(b.remainingMs("netflix", d2) == 60 * m, "a new day starts from zero, extras gone");
         check(b.limits.get("netflix") == 60, "a new day keeps the limit");
 
-        b.setLimit("netflix", 0);
-        check(!b.limits.containsKey("netflix"), "a limit of 0 removes it");
+        b.setLimit("netflix", Budget.NO_LIMIT);
+        check(!b.limits.containsKey("netflix"), "NO_LIMIT removes the limit");
+
+        Budget z = new Budget();
+        z.setLimit("tiktok", 0);
+        check(z.exhausted("tiktok", d1), "a limit of 0 is out of time from the start");
+        check(z.blocked(true, new java.util.HashSet<String>(), d1).contains("tiktok"), "a limit of 0 blocks in kids mode");
+        check(z.blocked(false, new java.util.HashSet<String>(), d1).isEmpty(), "a limit of 0 doesn't block outside kids mode");
+        z.grantExtra("tiktok", 30, d1);
+        check(z.remainingMs("tiktok", d1) == 30 * m, "+30 min opens a blocked app for today");
+        check(z.exhausted("tiktok", d2), "the next day it is blocked again");
 
         Budget k = new Budget();
         k.setLimit("netflix", 1);

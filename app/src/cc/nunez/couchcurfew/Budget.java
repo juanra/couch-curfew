@@ -11,6 +11,8 @@ import java.util.Set;
  */
 final class Budget {
     static final long MINUTE = 60_000L;
+    /** Passed to setLimit to remove an app's limit; a limit of 0 blocks the app in kids mode. */
+    static final int NO_LIMIT = -1;
 
     /** Minutes per day for each limited app; an app that isn't here has no limit. */
     final Map<String, Integer> limits = new HashMap<>();
@@ -27,9 +29,9 @@ final class Budget {
         extraMin.clear();
     }
 
-    /** Zero or less removes the limit. Usage already counted today is kept. */
+    /** NO_LIMIT (any negative) removes the limit; 0 blocks the app. Usage already counted today is kept. */
     void setLimit(String pkg, int minutes) {
-        if (minutes <= 0) limits.remove(pkg);
+        if (minutes < 0) limits.remove(pkg);
         else limits.put(pkg, minutes);
     }
 

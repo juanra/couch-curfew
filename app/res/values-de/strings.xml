@@ -45,4 +45,5 @@
     <string name="every_day">Jeden Tag</string>
     <string name="until_manual">Von Hand geändert bis %s.</string>
     <string name="until_schedule">Der Zeitplan ändert ihn am %s.</string>
+    <string name="not_allowed">Im Kindermodus gesperrt</string>
 </resources>
