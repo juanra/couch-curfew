@@ -12,11 +12,9 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.os.Bundle;
-import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
 import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -130,22 +128,86 @@ public class MainActivity extends Activity {
 
     private interface PinEntered { void entered(String pin); }
 
-    /** Cancelling any PIN prompt closes the app: nothing behind it is reachable without one. */
+    /**
+     * The PIN on an on-screen keypad: the TV's own keyboard sends people to their phone. Arrows and OK move through the
+     * keys; a remote's number keys and Back/Delete work too. Cancelling closes the app: nothing behind it is reachable
+     * without a PIN.
+     */
     private void pinPrompt(String title, final PinEntered done) {
-        final EditText field = new EditText(this);
-        field.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
-        field.setGravity(Gravity.CENTER);
-        field.setTextSize(28);
-        field.setLetterSpacing(0.4f);
+        final StringBuilder pin = new StringBuilder();
+        final TextView dots = text(" ", 34, Color.WHITE, true);
+        dots.setGravity(Gravity.CENTER);
+        dots.setLetterSpacing(0.3f);
+        dots.setPadding(0, dp(4), 0, dp(16));
+        final Runnable show = () -> {
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < 8; i++) b.append(i < pin.length() ? "●" : i < 4 ? "○" : "");
+            dots.setText(b);
+        };
+        show.run();
+
         LinearLayout box = new LinearLayout(this);
-        box.setPadding(dp(32), dp(8), dp(32), 0);
-        box.addView(field, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        pinDialog = new AlertDialog.Builder(this).setTitle(title).setView(box)
-                .setPositiveButton(android.R.string.ok, (d, w) -> done.entered(field.getText().toString()))
-                .setNegativeButton(android.R.string.cancel, (d, w) -> finish())
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        box.setPadding(dp(24), dp(8), dp(24), dp(8));
+        box.setClipChildren(false);
+        box.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{SKY_TOP, SKY_BOTTOM}));
+        TextView heading = text(title, 20, Color.WHITE, true);
+        heading.setGravity(Gravity.CENTER);
+        heading.setPadding(0, dp(12), 0, dp(4));
+        box.addView(heading);
+        box.addView(dots);
+
+        final AlertDialog[] dialog = new AlertDialog[1];
+        final Runnable submit = () -> {
+            if (pin.length() < 4) return;
+            dialog[0].dismiss();
+            done.entered(pin.toString());
+        };
+        final Runnable delete = () -> {
+            if (pin.length() > 0) pin.setLength(pin.length() - 1);
+            show.run();
+        };
+        GridLayout keys = new GridLayout(this);
+        keys.setColumnCount(3);
+        keys.setClipChildren(false);
+        String[] labels = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "OK"};
+        View five = null;
+        for (final String label : labels) {
+            Runnable action = label.equals("⌫") ? delete : label.equals("OK") ? submit : () -> {
+                if (pin.length() < 8) pin.append(label);
+                show.run();
+            };
+            TextView key = pill(label, label.equals("OK") ? MOON : 0x33FFFFFF, label.equals("OK") ? SKY_BOTTOM : Color.WHITE, "key" + label, action);
+            key.setTextSize(24);
+            GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+            lp.width = dp(84);
+            lp.height = dp(60);
+            lp.setMargins(dp(6), dp(6), dp(6), dp(6));
+            keys.addView(key, lp);
+            if (label.equals("5")) five = key;
+        }
+        box.addView(keys, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        dialog[0] = new AlertDialog.Builder(this).setView(box)
                 .setOnCancelListener(d -> finish())
+                .setOnKeyListener((d, code, e) -> {
+                    if (e.getAction() != android.view.KeyEvent.ACTION_DOWN) return false;
+                    if (code >= android.view.KeyEvent.KEYCODE_0 && code <= android.view.KeyEvent.KEYCODE_9) {
+                        if (pin.length() < 8) pin.append((char) ('0' + code - android.view.KeyEvent.KEYCODE_0));
+                        show.run();
+                        return true;
+                    }
+                    if (code == android.view.KeyEvent.KEYCODE_DEL) {
+                        delete.run();
+                        return true;
+                    }
+                    return false;
+                })
                 .create();
+        pinDialog = dialog[0];
         pinDialog.show();
+        if (five != null) five.requestFocus();
     }
 
     // MARK: - Screen
