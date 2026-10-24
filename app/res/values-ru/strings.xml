@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-written, not reviewed by a native speaker yet: corrections welcome. -->
+<resources>
+    <string name="app_name">Couch Curfew</string>
+    <string name="service_description">Couch Curfew видит, какое приложение открыто, только его название, чтобы считать время в детском режиме и возвращать на главный экран, когда время вышло. Он никогда не читает содержимое экрана.</string>
+    <string name="one_minute_left">Осталась 1 минута в %s</string>
+    <string name="time_up">Время для %s на сегодня закончилось</string>
+    <string name="blocked_kids">Недоступно в детском режиме</string>
+    <string name="adb_unreachable">Couch Curfew не может подключиться к ADB телевизора: %s</string>
+    <string name="enter_pin">Родительский PIN</string>
+    <string name="create_pin">Создайте родительский PIN (от 4 до 8 цифр)</string>
+    <string name="confirm_pin">Введите PIN ещё раз</string>
+    <string name="pin_bad">PIN должен содержать от 4 до 8 цифр</string>
+    <string name="pin_mismatch">PIN-коды не совпадают</string>
+    <string name="pin_wrong">Неверный PIN</string>
+    <string name="pin_wait">Слишком много попыток. Повторите через %d с</string>
+    <string name="pin_changed">PIN изменён</string>
+    <string name="change_pin">Сменить PIN</string>
+    <string name="setup_ok">Настройка: готово</string>
+    <string name="setup_needed">Нужна настройка: подключиться к ADB телевизора и включить службу</string>
+    <string name="setup_connecting">Подключение к ADB телевизора…</string>
+    <string name="setup_waiting">На телевизоре разрешите отладку по USB для Couch Curfew (отметьте «Всегда разрешать»).</string>
+    <string name="setup_done">Готово</string>
+    <string name="setup_failed">Ошибка настройки: %s</string>
+    <string name="no_limit">Без ограничений</string>
+    <string name="minutes">%d мин в день</string>
+    <string name="kids_mode_on">Детский режим · Вкл</string>
+    <string name="kids_mode_off">Детский режим · Выкл</string>
+    <string name="kids_hint_on">Лимиты считаются. Настройки и Play Маркет заблокированы.</string>
+    <string name="kids_hint_off">Время взрослых: ничего не считается и не блокируется. Включите детский режим, когда смотрят дети.</string>
+    <string name="apps_title">Приложения на этом телевизоре</string>
+    <string name="left_today">Сегодня осталось %d мин</string>
+    <string name="out_today">Время на сегодня закончилось</string>
+    <string name="extra_today">+30 мин сегодня</string>
+    <string name="counts_in_kids_mode">Считается только в детском режиме</string>
+    <string name="schedule_title">Расписание</string>
+    <string name="schedule_add">+ Добавить интервал</string>
+    <string name="schedule_days">В какие дни?</string>
+    <string name="schedule_no_days">Выберите хотя бы один день</string>
+    <string name="schedule_start">Детский режим начинается в</string>
+    <string name="schedule_end">и заканчивается в</string>
+    <string name="schedule_same">Начало и конец должны отличаться</string>
+    <string name="schedule_edit">Изменить</string>
+    <string name="schedule_delete">Удалить</string>
+    <string name="every_day">Каждый день</string>
+    <string name="until_manual">Изменено вручную до %s.</string>
+    <string name="until_schedule">Расписание изменит его %s.</string>
+</resources>

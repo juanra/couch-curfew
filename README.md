@@ -28,6 +28,12 @@ commands: `pm suspend`/`pm unsuspend` and `am force-stop` on the apps you limit,
 on. The accessibility service only receives window changes (which app is in front); it never reads the screen. The
 ADB client is adapted from Free My TV's, under its MIT license.
 
+## Languages
+
+English, Spanish, Portuguese (Brazil), French, German, Italian and Russian, following the TV's language. Only
+English and Spanish were written by a native speaker; the others are a first pass, and corrections are welcome as
+pull requests to `app/res/values-*/strings.xml`.
+
 ## Install
 
 1. On the TV, turn on **Developer options → Network debugging** (Free My TV's setup already did this if you use it).

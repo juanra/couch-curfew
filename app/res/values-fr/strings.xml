@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-written, not reviewed by a native speaker yet: corrections welcome. -->
+<resources>
+    <string name="app_name">Couch Curfew</string>
+    <string name="service_description">Couch Curfew voit quelle appli est ouverte, seulement son nom, pour compter son temps en mode enfants et revenir à l’accueil quand le temps est écoulé. Il ne lit jamais ce qui est à l’écran.</string>
+    <string name="one_minute_left">Plus qu’une minute sur %s</string>
+    <string name="time_up">Temps écoulé pour %s aujourd’hui</string>
+    <string name="blocked_kids">Indisponible en mode enfants</string>
+    <string name="adb_unreachable">Couch Curfew n’arrive pas à joindre l’ADB du téléviseur : %s</string>
+    <string name="enter_pin">PIN parental</string>
+    <string name="create_pin">Créez un PIN parental (4 à 8 chiffres)</string>
+    <string name="confirm_pin">Saisissez le PIN à nouveau</string>
+    <string name="pin_bad">Le PIN doit comporter 4 à 8 chiffres</string>
+    <string name="pin_mismatch">Les PIN ne correspondent pas</string>
+    <string name="pin_wrong">PIN incorrect</string>
+    <string name="pin_wait">Trop d’essais. Réessayez dans %d s</string>
+    <string name="pin_changed">PIN modifié</string>
+    <string name="change_pin">Modifier le PIN</string>
+    <string name="setup_ok">Configuration : prête</string>
+    <string name="setup_needed">Configuration requise : se connecter à l’ADB du téléviseur et activer le service</string>
+    <string name="setup_connecting">Connexion à l’ADB du téléviseur…</string>
+    <string name="setup_waiting">Sur le téléviseur, autorisez le débogage USB pour Couch Curfew (cochez « Toujours autoriser »).</string>
+    <string name="setup_done">Prêt</string>
+    <string name="setup_failed">Échec de la configuration : %s</string>
+    <string name="no_limit">Sans limite</string>
+    <string name="minutes">%d min par jour</string>
+    <string name="kids_mode_on">Mode enfants · Activé</string>
+    <string name="kids_mode_off">Mode enfants · Désactivé</string>
+    <string name="kids_hint_on">Les limites sont décomptées. Paramètres et Play Store sont verrouillés.</string>
+    <string name="kids_hint_off">Temps des adultes : rien n’est compté ni verrouillé. Activez le mode enfants quand les enfants regardent.</string>
+    <string name="apps_title">Applis de ce téléviseur</string>
+    <string name="left_today">Encore %d min aujourd’hui</string>
+    <string name="out_today">Temps écoulé pour aujourd’hui</string>
+    <string name="extra_today">+30 min aujourd’hui</string>
+    <string name="counts_in_kids_mode">Compte seulement en mode enfants</string>
+    <string name="schedule_title">Horaires</string>
+    <string name="schedule_add">+ Ajouter une plage</string>
+    <string name="schedule_days">Quels jours ?</string>
+    <string name="schedule_no_days">Choisissez au moins un jour</string>
+    <string name="schedule_start">Le mode enfants commence à</string>
+    <string name="schedule_end">et se termine à</string>
+    <string name="schedule_same">Le début et la fin doivent être différents</string>
+    <string name="schedule_edit">Modifier</string>
+    <string name="schedule_delete">Supprimer</string>
+    <string name="every_day">Tous les jours</string>
+    <string name="until_manual">Modifié à la main jusqu’à %s.</string>
+    <string name="until_schedule">L’horaire le change %s.</string>
+</resources>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-written, not reviewed by a native speaker yet: corrections welcome. -->
+<resources>
+    <string name="app_name">Couch Curfew</string>
+    <string name="service_description">Couch Curfew vede quale app è aperta, solo il nome, per contarne il tempo in modalità bambini e tornare alla home quando il tempo è finito. Non legge mai cosa c’è sullo schermo.</string>
+    <string name="one_minute_left">Manca 1 minuto per %s</string>
+    <string name="time_up">Tempo finito per %s oggi</string>
+    <string name="blocked_kids">Non disponibile in modalità bambini</string>
+    <string name="adb_unreachable">Couch Curfew non raggiunge l’ADB della TV: %s</string>
+    <string name="enter_pin">PIN genitori</string>
+    <string name="create_pin">Crea un PIN genitori (da 4 a 8 cifre)</string>
+    <string name="confirm_pin">Inserisci di nuovo il PIN</string>
+    <string name="pin_bad">Il PIN deve avere da 4 a 8 cifre</string>
+    <string name="pin_mismatch">I PIN non coincidono</string>
+    <string name="pin_wrong">PIN errato</string>
+    <string name="pin_wait">Troppi tentativi. Riprova tra %d s</string>
+    <string name="pin_changed">PIN modificato</string>
+    <string name="change_pin">Cambia PIN</string>
+    <string name="setup_ok">Configurazione: pronta</string>
+    <string name="setup_needed">Configurazione necessaria: collegarsi all’ADB della TV e attivare il servizio</string>
+    <string name="setup_connecting">Connessione all’ADB della TV…</string>
+    <string name="setup_waiting">Sulla TV, consenti il debug USB per Couch Curfew (spunta “Consenti sempre”).</string>
+    <string name="setup_done">Pronto</string>
+    <string name="setup_failed">Configurazione non riuscita: %s</string>
+    <string name="no_limit">Nessun limite</string>
+    <string name="minutes">%d min al giorno</string>
+    <string name="kids_mode_on">Modalità bambini · Attiva</string>
+    <string name="kids_mode_off">Modalità bambini · Disattivata</string>
+    <string name="kids_hint_on">I limiti stanno contando. Impostazioni e Play Store sono bloccati.</string>
+    <string name="kids_hint_off">Tempo degli adulti: niente viene contato o bloccato. Attiva la modalità bambini quando guardano i bambini.</string>
+    <string name="apps_title">App di questa TV</string>
+    <string name="left_today">Restano %d min oggi</string>
+    <string name="out_today">Tempo finito per oggi</string>
+    <string name="extra_today">+30 min oggi</string>
+    <string name="counts_in_kids_mode">Conta solo in modalità bambini</string>
+    <string name="schedule_title">Orari</string>
+    <string name="schedule_add">+ Aggiungi una fascia oraria</string>
+    <string name="schedule_days">Quali giorni?</string>
+    <string name="schedule_no_days">Scegli almeno un giorno</string>
+    <string name="schedule_start">La modalità bambini inizia alle</string>
+    <string name="schedule_end">e finisce alle</string>
+    <string name="schedule_same">L’inizio e la fine devono essere diversi</string>
+    <string name="schedule_edit">Modifica</string>
+    <string name="schedule_delete">Elimina</string>
+    <string name="every_day">Tutti i giorni</string>
+    <string name="until_manual">Cambiata a mano fino a %s.</string>
+    <string name="until_schedule">L’orario la cambia %s.</string>
+</resources>
