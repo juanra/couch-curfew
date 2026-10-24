@@ -32,4 +32,16 @@
     <string name="out_today">Se acabó el tiempo de hoy</string>
     <string name="extra_today">+30 min hoy</string>
     <string name="counts_in_kids_mode">Solo cuenta en modo niños</string>
+    <string name="schedule_title">Horario</string>
+    <string name="schedule_add">+ Agregar horario</string>
+    <string name="schedule_days">¿Qué días?</string>
+    <string name="schedule_no_days">Elige al menos un día</string>
+    <string name="schedule_start">El modo niños empieza a las</string>
+    <string name="schedule_end">y termina a las</string>
+    <string name="schedule_same">El inicio y el fin deben ser distintos</string>
+    <string name="schedule_edit">Editar</string>
+    <string name="schedule_delete">Eliminar</string>
+    <string name="every_day">Todos los días</string>
+    <string name="until_manual">Cambiado a mano hasta el %s.</string>
+    <string name="until_schedule">El horario lo cambia el %s.</string>
 </resources>

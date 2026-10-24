@@ -46,7 +46,7 @@ public class GuardService extends AccessibilityService {
         registerReceiver(screen, f);
         handler.postDelayed(tick, TICK_MS);
         guard.reconcile(null);
-        guard.scheduleMidnight();
+        guard.scheduleAlarm();
     }
 
     @Override public void onAccessibilityEvent(AccessibilityEvent e) {

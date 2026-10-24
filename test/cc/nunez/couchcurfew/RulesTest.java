@@ -64,6 +64,35 @@ public class RulesTest {
         check(Pin.lockoutMs(4) == 0 && Pin.lockoutMs(5) == 60_000 && Pin.lockoutMs(7) == 180_000,
                 "four free tries, then a growing wait");
 
+
+        java.time.LocalDateTime mon = java.time.LocalDateTime.of(2026, 10, 26, 0, 0); // a Monday
+        check(mon.getDayOfWeek() == java.time.DayOfWeek.MONDAY, "the test date is a Monday");
+        java.util.List<Schedule.Window> school = java.util.Arrays.asList(
+                new Schedule.Window(Schedule.WEEKDAYS, 14 * 60, 20 * 60),
+                new Schedule.Window(Schedule.WEEKEND, 8 * 60, 21 * 60));
+        check(!Schedule.active(school, mon.withHour(13).withMinute(59)), "Monday 13:59 is outside 14-20");
+        check(Schedule.active(school, mon.withHour(14)), "Monday 14:00 starts the window");
+        check(!Schedule.active(school, mon.withHour(20)), "Monday 20:00 ends it");
+        check(Schedule.active(school, mon.minusDays(1).withHour(9)), "Sunday 09:00 is in the weekend window");
+        check(!Schedule.active(school, mon.minusDays(1).withHour(22)), "Sunday 22:00 is out");
+        check(Schedule.nextBoundary(school, mon.withHour(15)).equals(mon.withHour(20)), "inside a window the next change is its end");
+        check(Schedule.nextBoundary(school, mon.plusDays(4).withHour(21)).equals(mon.plusDays(5).withHour(8)),
+                "Friday night the next change is Saturday 08:00");
+
+        java.util.List<Schedule.Window> night = java.util.Collections.singletonList(new Schedule.Window(1, 20 * 60, 7 * 60)); // Monday only
+        check(Schedule.active(night, mon.withHour(23)), "a window across midnight is on late Monday");
+        check(Schedule.active(night, mon.plusDays(1).withHour(6)), "and early Tuesday, the day after it starts");
+        check(!Schedule.active(night, mon.withHour(6)), "but not early Monday (Sunday has no window)");
+        check(Schedule.nextBoundary(night, mon.withHour(23)).equals(mon.plusDays(1).withHour(7)), "its end is on the next day");
+        check(!new Schedule.Window(Schedule.ALL_DAYS, 600, 600).valid() && !new Schedule.Window(0, 1, 2).valid(),
+                "no days, or the same start and end, is not a window");
+
+        java.time.LocalDateTime until = Schedule.nextBoundary(school, mon.withHour(16));
+        check(!Schedule.kidsMode(school, false, until, mon.withHour(16).withMinute(30)), "a parent's 'off' at 16:00 holds inside the window");
+        check(Schedule.kidsMode(school, false, until, mon.plusDays(1).withHour(15)), "the next day the schedule is back");
+        check(Schedule.kidsMode(java.util.Collections.<Schedule.Window>emptyList(), true, null, mon), "without windows a manual 'on' stays on");
+        check(Schedule.kidsMode(school, null, null, mon.withHour(15)), "no manual change: the schedule decides");
+
         System.out.println(failures == 0 ? "All checks passed." : failures + " check(s) failed.");
         System.exit(failures == 0 ? 0 : 1);
     }

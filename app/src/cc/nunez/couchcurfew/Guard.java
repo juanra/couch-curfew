@@ -16,6 +16,7 @@ import android.widget.Toast;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -34,7 +35,7 @@ final class Guard {
     static final String TAG = "CouchCurfew";
     static final String PKG = "cc.nunez.couchcurfew";
     static final String SERVICE = PKG + "/" + PKG + ".GuardService";
-    static final String ACTION_MIDNIGHT = PKG + ".MIDNIGHT";
+    static final String ACTION_ALARM = PKG + ".ALARM";
     private static final String PLAY_STORE = "com.android.vending";
     /** Package and component names that may go into a shell command; anything else is refused. */
     private static final Pattern SAFE_PACKAGE = Pattern.compile("[A-Za-z0-9_.]+");
@@ -257,15 +258,28 @@ final class Guard {
         adb.shell("settings put secure accessibility_enabled 1");
     }
 
-    // MARK: - Midnight
+    // MARK: - Alarm: midnight (a new day) and the schedule's next start or end, whichever comes first
 
-    void scheduleMidnight() {
-        long midnight = LocalDate.now(ZoneId.systemDefault()).plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        Intent i = new Intent(ACTION_MIDNIGHT).setClass(app, Receiver.class);
+    void scheduleAlarm() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime next = now.toLocalDate().plusDays(1).atStartOfDay();
+        LocalDateTime boundary = Schedule.nextBoundary(store.windows(), now);
+        if (boundary != null && boundary.isBefore(next)) next = boundary;
+        long at = next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        Intent i = new Intent(ACTION_ALARM).setClass(app, Receiver.class);
         PendingIntent pi = PendingIntent.getBroadcast(app, 0, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         AlarmManager am = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
-        // A few minutes late is fine: any event after midnight starts the new day on its own.
-        am.setWindow(AlarmManager.RTC_WAKEUP, midnight + 5_000, 5 * 60_000, pi);
+        // Up to a minute late is fine; exact alarms need a permission the TV has no screen for.
+        am.setWindow(AlarmManager.RTC_WAKEUP, at + 1_000, 60_000, pi);
+    }
+
+    /** At the alarm: kids mode may have just turned on or off; apply it to what's in front and to the suspended apps. */
+    void onAlarm(Runnable done) {
+        commit();
+        Log.i(TAG, "alarm: kids mode " + (store.kidsMode() ? "on" : "off"));
+        if (!foreground.isEmpty() && blockedNow().contains(foreground)) kick(foreground);
+        reconcile(done);
+        scheduleAlarm();
     }
 
     // MARK: - Helpers

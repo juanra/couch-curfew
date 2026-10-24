@@ -8,6 +8,9 @@ screen; Couch Curfew adds what a family TV also needs: "YouTube, 60 minutes a da
 ## What it does
 
 - **Kids mode, behind a parent PIN.** Limits only count while kids mode is on, so grown-ups watch without a timer.
+- **A schedule for kids mode**: windows of days and hours ("Mon–Fri 14:00–20:00", "Sat–Sun 08:00–21:00", even
+  "20:00–07:00" across midnight) turn it on and off by themselves. A parent can still switch it by hand; that holds
+  until the schedule's next start or end.
 - **A daily limit per app**: 15 minutes to 3 hours, or no limit. Time resets at midnight.
 - **When time is up** the app closes, the TV goes home and the app stays paused (`pm suspend`) until midnight. One
   minute before, a warning shows.
@@ -35,7 +38,7 @@ ADB client is adapted from Free My TV's, under its MIT license.
    ```
 3. Open **Couch Curfew** from the TV's apps, create the parent PIN and pick **Setup**. The TV asks once to allow USB
    debugging for Couch Curfew: check **Always allow** and accept.
-4. Pick a limit for each app you want to limit, then turn **Kids mode** on.
+4. Pick a limit for each app you want to limit, then turn **Kids mode** on, or add a **Schedule** window.
 
 TCL and other TVs that kill background apps: Setup also grants `APP_AUTO_START`, so the midnight reset and the restore
 after a reboot can run.
@@ -68,7 +71,7 @@ is removed while apps are paused, resume them with `adb shell pm unsuspend <pack
 
 ## Not yet
 
-Bedtime schedules, a combined daily total, HDMI inputs.
+Bedtime (every app locked during a window), a combined daily total, HDMI inputs.
 
 ## License
 

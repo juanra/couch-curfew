@@ -177,7 +177,7 @@ public class MainActivity extends Activity {
         kidsSwitch.setTextSize(20);
         header.addView(kidsSwitch);
         content.addView(header);
-        TextView hint = text(getString(kids ? R.string.kids_hint_on : R.string.kids_hint_off), 16, MUTED, false);
+        TextView hint = text(getString(kids ? R.string.kids_hint_on : R.string.kids_hint_off) + " " + whenItChanges(), 16, MUTED, false);
         hint.setPadding(dp(72), dp(4), 0, dp(20));
         content.addView(hint);
 
@@ -189,6 +189,19 @@ public class MainActivity extends Activity {
             lp.bottomMargin = dp(20);
             content.addView(warning, lp);
         }
+
+        // The schedule: a button per window, and one to add a window.
+        content.addView(sectionTitle(getString(R.string.schedule_title)));
+        LinearLayout windows = new LinearLayout(this);
+        windows.setClipChildren(false);
+        windows.setPadding(0, 0, 0, dp(24));
+        List<Schedule.Window> schedule = guard.store.windows();
+        for (int i = 0; i < schedule.size(); i++) {
+            final int index = i;
+            windows.addView(pill(describe(schedule.get(i)), 0x33FFFFFF, Color.WHITE, "window" + i, () -> windowMenu(index)), spaced());
+        }
+        windows.addView(pill(getString(R.string.schedule_add), 0x1AFFFFFF, MOON, "window+", () -> editWindow(-1)), spaced());
+        content.addView(windows);
 
         // A card per app.
         content.addView(sectionTitle(getString(R.string.apps_title)));
@@ -329,9 +342,120 @@ public class MainActivity extends Activity {
         refresh();
     }
 
+    // MARK: - Schedule
+
+    /** The second sentence under the switch: until when the current state holds. */
+    private String whenItChanges() {
+        java.time.format.DateTimeFormatter f = java.time.format.DateTimeFormatter.ofPattern("EEE HH:mm", java.util.Locale.getDefault());
+        java.time.LocalDateTime manual = guard.store.manualUntil();
+        if (manual != null) return getString(R.string.until_manual, manual.format(f));
+        java.time.LocalDateTime next = Schedule.nextBoundary(guard.store.windows(), java.time.LocalDateTime.now());
+        return next == null ? "" : getString(R.string.until_schedule, next.format(f));
+    }
+
+    /** "Mon–Fri · 14:00–20:00": a run of days as a range, otherwise the days one by one. */
+    private String describe(Schedule.Window w) {
+        java.time.format.TextStyle style = java.time.format.TextStyle.SHORT;
+        java.util.Locale locale = java.util.Locale.getDefault();
+        String days;
+        if (w.days == Schedule.ALL_DAYS) days = getString(R.string.every_day);
+        else {
+            int first = Integer.numberOfTrailingZeros(w.days), last = 31 - Integer.numberOfLeadingZeros(w.days);
+            boolean run = Integer.bitCount(w.days) == last - first + 1 && last > first;
+            if (run) days = java.time.DayOfWeek.of(first + 1).getDisplayName(style, locale) + "–" + java.time.DayOfWeek.of(last + 1).getDisplayName(style, locale);
+            else {
+                StringBuilder b = new StringBuilder();
+                for (int d = 0; d < 7; d++) if ((w.days & (1 << d)) != 0) b.append(b.length() > 0 ? ", " : "").append(java.time.DayOfWeek.of(d + 1).getDisplayName(style, locale));
+                days = b.toString();
+            }
+        }
+        return days + "  ·  " + clock(w.start) + "–" + clock(w.end);
+    }
+
+    private static String clock(int minutes) {
+        return String.format(java.util.Locale.ROOT, "%02d:%02d", minutes / 60, minutes % 60);
+    }
+
+    private void windowMenu(final int index) {
+        new AlertDialog.Builder(this).setTitle(describe(guard.store.windows().get(index)))
+                .setItems(new String[]{getString(R.string.schedule_edit), getString(R.string.schedule_delete)}, (d, which) -> {
+                    if (which == 0) editWindow(index);
+                    else {
+                        List<Schedule.Window> all = guard.store.windows();
+                        all.remove(index);
+                        saveWindows(all);
+                    }
+                })
+                .show();
+    }
+
+    /** Days, then start, then end; `index` -1 adds a window. */
+    private void editWindow(final int index) {
+        final List<Schedule.Window> all = guard.store.windows();
+        Schedule.Window old = index >= 0 ? all.get(index) : new Schedule.Window(Schedule.WEEKDAYS, 14 * 60, 20 * 60);
+        final boolean[] checked = new boolean[7];
+        String[] names = new String[7];
+        for (int d = 0; d < 7; d++) {
+            checked[d] = (old.days & (1 << d)) != 0;
+            names[d] = java.time.DayOfWeek.of(d + 1).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault());
+        }
+        new AlertDialog.Builder(this).setTitle(R.string.schedule_days)
+                .setMultiChoiceItems(names, checked, (d, which, on) -> checked[which] = on)
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    int days = 0;
+                    for (int i = 0; i < 7; i++) if (checked[i]) days |= 1 << i;
+                    if (days == 0) {
+                        Toast.makeText(this, R.string.schedule_no_days, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    final int pickedDays = days;
+                    pickTime(R.string.schedule_start, old.start, start -> pickTime(R.string.schedule_end, old.end, end -> {
+                        if (start == end) {
+                            Toast.makeText(this, R.string.schedule_same, Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        Schedule.Window window = new Schedule.Window(pickedDays, start, end);
+                        if (index >= 0) all.set(index, window);
+                        else all.add(window);
+                        saveWindows(all);
+                    }));
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private interface TimePicked { void picked(int minutes); }
+
+    /** Every half hour in a list: easier with the remote than the clock dial. */
+    private void pickTime(int title, int current, final TimePicked done) {
+        String[] slots = new String[48];
+        for (int i = 0; i < 48; i++) slots[i] = clock(i * 30);
+        new AlertDialog.Builder(this).setTitle(title)
+                .setSingleChoiceItems(slots, Math.min(47, current / 30), (d, which) -> {
+                    d.dismiss();
+                    done.picked(which * 30);
+                })
+                .show();
+    }
+
+    private void saveWindows(List<Schedule.Window> windows) {
+        guard.store.windows(windows);
+        android.util.Log.i(Guard.TAG, "schedule saved: " + windows.size() + " window(s), kids mode " + (guard.store.kidsMode() ? "on" : "off"));
+        guard.scheduleAlarm();
+        guard.reconcile(null);
+        refresh();
+    }
+
+    private LinearLayout.LayoutParams spaced() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = dp(12);
+        return lp;
+    }
+
     private void setKidsMode(boolean on) {
         android.util.Log.i(Guard.TAG, "kids mode " + (on ? "on" : "off"));
         guard.store.kidsMode(on);
+        guard.scheduleAlarm();
         guard.reconcile(null);
         refresh();
     }

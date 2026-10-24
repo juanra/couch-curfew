@@ -32,4 +32,16 @@
     <string name="out_today">Time is up for today</string>
     <string name="extra_today">+30 min today</string>
     <string name="counts_in_kids_mode">Counts only in kids mode</string>
+    <string name="schedule_title">Schedule</string>
+    <string name="schedule_add">+ Add a time window</string>
+    <string name="schedule_days">Which days?</string>
+    <string name="schedule_no_days">Pick at least one day</string>
+    <string name="schedule_start">Kids mode starts at</string>
+    <string name="schedule_end">and ends at</string>
+    <string name="schedule_same">The start and the end must be different</string>
+    <string name="schedule_edit">Edit</string>
+    <string name="schedule_delete">Delete</string>
+    <string name="every_day">Every day</string>
+    <string name="until_manual">Changed by hand until %s.</string>
+    <string name="until_schedule">The schedule changes it on %s.</string>
 </resources>
