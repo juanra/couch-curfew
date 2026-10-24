@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="512" height="512"><defs>
+<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A3F8F"/><stop offset="1" stop-color="#14173A"/></linearGradient>
+<linearGradient id="moon" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE9A3"/><stop offset="1" stop-color="#F4C542"/></linearGradient>
+<linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F28B6E"/><stop offset="1" stop-color="#D8664C"/></linearGradient>
+<linearGradient id="seat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFA387"/><stop offset="1" stop-color="#EE8466"/></linearGradient>
+<linearGradient id="arm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E5775A"/><stop offset="1" stop-color="#C25A42"/></linearGradient>
+<radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFE9A3" stop-opacity="0.35"/><stop offset="1" stop-color="#FFE9A3" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="108" height="108" rx="24" fill="url(#sky)"/><circle cx="68" cy="32" r="26" fill="url(#glow)"/>
+<path d="M69.18,15.02 A17,17 0 1,0 86.26,36.97 A14,14 0 0,1 69.18,15.02 Z" fill="url(#moon)"/><g fill="#FFFFFF"><circle cx="24" cy="22" r="1.6" opacity="0.9"/><circle cx="38" cy="34" r="1.1" opacity="0.7"/><circle cx="90" cy="50" r="1.2" opacity="0.7"/><circle cx="18" cy="44" r="0.9" opacity="0.6"/><circle cx="46" cy="16" r="1.0" opacity="0.6"/>
+<path d="M31,14 l1.2,3.3 3.3,1.2 -3.3,1.2 -1.2,3.3 -1.2,-3.3 -3.3,-1.2 3.3,-1.2z" opacity="0.95"/></g>
+<ellipse cx="54" cy="93" rx="36" ry="3.5" fill="#000" opacity="0.35"/>
+<rect x="27" y="56" width="54" height="22" rx="9" fill="url(#back)"/>
+<rect x="31" y="72" width="46" height="13" rx="5" fill="url(#seat)"/>
+<line x1="54" y1="73.5" x2="54" y2="83.5" stroke="#C8604A" stroke-width="1.4" stroke-linecap="round"/>
+<rect x="19" y="65" width="15" height="24" rx="7.5" fill="url(#arm)"/>
+<rect x="74" y="65" width="15" height="24" rx="7.5" fill="url(#arm)"/>
+<rect x="24" y="88" width="5" height="5" rx="1.5" fill="#8E3E2F"/>
+<rect x="79" y="88" width="5" height="5" rx="1.5" fill="#8E3E2F"/>
+</svg>

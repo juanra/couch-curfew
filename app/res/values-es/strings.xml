@@ -15,8 +15,6 @@
     <string name="pin_wait">Demasiados intentos. Prueba de nuevo en %d s</string>
     <string name="pin_changed">PIN cambiado</string>
     <string name="change_pin">Cambiar PIN</string>
-    <string name="kids_on">Modo niños: ACTIVADO (aplican los límites, Ajustes y Play Store bloqueados)</string>
-    <string name="kids_off">Modo niños: desactivado</string>
     <string name="setup_ok">Configuración: lista</string>
     <string name="setup_needed">Falta configurar: conectar al ADB de la TV y activar el servicio</string>
     <string name="setup_connecting">Conectando al ADB de la TV…</string>
@@ -25,6 +23,12 @@
     <string name="setup_failed">Falló la configuración: %s</string>
     <string name="no_limit">Sin límite</string>
     <string name="minutes">%d min al día</string>
-    <string name="limit_state">%1$d min al día, quedan %2$d hoy</string>
-    <string name="extra_today">+30 min solo hoy</string>
+    <string name="kids_mode_on">Modo niños · Activado</string>
+    <string name="kids_mode_off">Modo niños · Apagado</string>
+    <string name="kids_hint_on">Los límites están contando. Ajustes y Play Store están bloqueados.</string>
+    <string name="kids_hint_off">Tiempo de adultos: no se cuenta ni se bloquea nada. Activa el modo niños cuando vean los niños.</string>
+    <string name="apps_title">Apps de esta TV</string>
+    <string name="left_today">Quedan %d min hoy</string>
+    <string name="out_today">Se acabó el tiempo de hoy</string>
+    <string name="extra_today">+30 min hoy</string>
 </resources>

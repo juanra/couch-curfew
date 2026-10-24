@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- The TV launcher's 16:9 tile: the icon's moon and couch, centered. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="320dp" android:height="180dp" android:viewportWidth="320" android:viewportHeight="180">
-    <path android:fillColor="#1E2340" android:pathData="M0,0h320v180h-320z" />
-    <path android:fillColor="#F4D35E" android:pathData="M176,30a28,28 0,1 0,28 40a22,22 0,1 1,-28 -40z" />
-    <path android:fillColor="#E07A5F" android:pathData="M110,100h100a8,8 0,0 1,8 8v22h-116v-22a8,8 0,0 1,8 -8z" />
-    <path android:fillColor="#C0583F" android:pathData="M116,130h10v12h-10zM194,130h10v12h-10z" />
-</vector>

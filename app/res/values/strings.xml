@@ -15,8 +15,6 @@
     <string name="pin_wait">Too many tries. Try again in %d s</string>
     <string name="pin_changed">PIN changed</string>
     <string name="change_pin">Change PIN</string>
-    <string name="kids_on">Kids mode: ON (limits apply, Settings and Play Store locked)</string>
-    <string name="kids_off">Kids mode: off</string>
     <string name="setup_ok">Setup: ready</string>
     <string name="setup_needed">Setup needed: connect to the TV\'s ADB and turn on the service</string>
     <string name="setup_connecting">Connecting to the TV\'s ADB…</string>
@@ -25,6 +23,12 @@
     <string name="setup_failed">Setup failed: %s</string>
     <string name="no_limit">No limit</string>
     <string name="minutes">%d min a day</string>
-    <string name="limit_state">%1$d min a day, %2$d left today</string>
-    <string name="extra_today">+30 min today only</string>
+    <string name="kids_mode_on">Kids mode · On</string>
+    <string name="kids_mode_off">Kids mode · Off</string>
+    <string name="kids_hint_on">Limits are counting. Settings and the Play Store are locked.</string>
+    <string name="kids_hint_off">Grown-up time: nothing is counted or locked. Turn on kids mode when the kids watch.</string>
+    <string name="apps_title">Apps on this TV</string>
+    <string name="left_today">%d min left today</string>
+    <string name="out_today">Time is up for today</string>
+    <string name="extra_today">+30 min today</string>
 </resources>
