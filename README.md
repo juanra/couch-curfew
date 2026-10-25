@@ -51,8 +51,8 @@ Couch Curfew is an **unofficial companion** to Free My TV, not part of it.
 - **When time is up** the app closes, the TV goes home and the app stays paused until midnight. One minute before, a
   warning shows. Opening a paused app explains why, and tells the kid to ask their parents.
 - **+30 minutes today** for one app, without changing its limit.
-- **Settings is locked in kids mode**, so the limits can't be switched off from the TV's menus. The Play Store too:
-  Android refuses to pause it, so Couch Curfew sends the TV home whenever it opens.
+- **Settings and the Play Store are locked in kids mode**, so the limits can't be switched off from the TV's menus:
+  opening either one sends the TV home.
 - **Private by design.** Everything is set up on the TV, behind the PIN. No account, no cloud, no tracking: the only
   network use is the TV's own ADB on `127.0.0.1`.
 
@@ -96,12 +96,14 @@ Couch Curfew is a speed bump for young kids, not a lock for a determined teenage
 - **A factory reset**, or turning off network debugging from Developer options before kids mode is on.
 - **Free My TV's own settings**, since Free My TV is the home screen. They don't switch Couch Curfew off.
 - **Anything during the first seconds** after the TV boots, before the service starts.
+- **A glimpse of Settings**: it is sent home as it opens, not paused like a limited app. Pausing Settings would leave
+  the TV stuck on Android's "app not available" dialog at every boot, since the placeholder home Android shows while
+  booting lives in Settings.
 
 ## Recovery
 
 Forgot the PIN? From a computer: `adb shell pm clear cc.nunez.couchcurfew` (this also clears the limits). If the app
-is removed while apps are paused, resume them with `adb shell pm unsuspend <package>`; Settings is
-`com.android.tv.settings` on most Android TVs.
+is removed while apps are paused, resume them with `adb shell pm unsuspend <package>`.
 
 ## Languages
 

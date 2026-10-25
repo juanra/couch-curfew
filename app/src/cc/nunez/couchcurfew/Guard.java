@@ -53,7 +53,7 @@ final class Guard {
     private final Context app;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService adbThread = Executors.newSingleThreadExecutor();
-    /** Packages Android refuses to suspend (the Play Store); for those, sending the TV home is the only block. */
+    /** Packages Android refuses to suspend; for those, sending the TV home is the only block. */
     private final Set<String> unsuspendable = java.util.Collections.synchronizedSet(new HashSet<String>());
     private final Set<String> warned = new HashSet<>();
     /** The dialog message each package was last suspended with; empty after a restart, so the first apply sets them all. */
@@ -166,8 +166,11 @@ final class Guard {
 
     /** Suspends what must be blocked and resumes what this app suspended and no longer must be. `done` runs after, on the ADB thread. */
     void reconcile(final Runnable done) {
+        // Settings and the Play Store are only ever sent home, never suspended: during boot Android shows a placeholder
+        // home that lives in Settings, and a suspended Settings leaves the TV stuck on Android's "app not available".
         final java.util.Map<String, String> desired = new java.util.HashMap<>();
-        for (String p : blockedNow()) desired.put(p, message(p));
+        Set<String> locked = locked();
+        for (String p : blockedNow()) if (!locked.contains(p)) desired.put(p, message(p));
         adbThread.execute(() -> {
             try {
                 apply(desired);
