@@ -26,14 +26,42 @@ final class Store {
     Budget loadBudget() {
         Budget b = new Budget();
         b.day = p.getString("day", "");
-        for (Map.Entry<String, Long> e : longs(p.getString("limits", "{}")).entrySet()) b.limits.put(e.getKey(), e.getValue().intValue());
+        loadLimits(b);
         b.usedMs.putAll(longs(p.getString("used", "{}")));
         for (Map.Entry<String, Long> e : longs(p.getString("extra", "{}")).entrySet()) b.extraMin.put(e.getKey(), e.getValue().intValue());
         return b;
     }
 
+    /**
+     * The limits, seven per app (Monday first) under "limitsByDay". Up to 0.3 there was one number per app under
+     * "limits": read once as the same limit every day, and left in place so an older version still finds it.
+     */
+    private void loadLimits(Budget b) {
+        String byDay = p.getString("limitsByDay", null);
+        if (byDay == null) {
+            for (Map.Entry<String, Long> e : longs(p.getString("limits", "{}")).entrySet()) b.setLimit(e.getKey(), e.getValue().intValue());
+            return;
+        }
+        try {
+            JSONObject o = new JSONObject(byDay);
+            for (Iterator<String> it = o.keys(); it.hasNext(); ) {
+                String pkg = it.next();
+                JSONArray week = o.getJSONArray(pkg);
+                for (int d = 0; d < 7; d++) b.setLimit(pkg, 1 << d, week.getInt(d));
+            }
+        } catch (JSONException e) {
+            android.util.Log.w(Guard.TAG, "stored limits unreadable, starting without limits: " + e.getMessage());
+        }
+    }
+
     void saveBudget(Budget b) {
-        p.edit().putString("day", b.day).putString("limits", new JSONObject(b.limits).toString())
+        JSONObject limits = new JSONObject();
+        try {
+            for (Map.Entry<String, int[]> e : b.limits.entrySet()) limits.put(e.getKey(), new JSONArray(e.getValue()));
+        } catch (JSONException e) {
+            throw new IllegalStateException(e); // a package name and seven ints always fit in JSON
+        }
+        p.edit().putString("day", b.day).putString("limitsByDay", limits.toString())
                 .putString("used", new JSONObject(b.usedMs).toString()).putString("extra", new JSONObject(b.extraMin).toString())
                 .apply();
     }
@@ -92,6 +120,10 @@ final class Store {
         if (!p.contains("kids")) return;
         p.edit().putBoolean("manual", p.getBoolean("kids", false)).putString("manualUntil", "").remove("kids").commit();
     }
+
+    /** The age band for the daily guideline: one of Usage.BANDS, "off" to show none, "" while the parent hasn't chosen. */
+    String guideline() { return p.getString("guidelineBand", ""); }
+    void guideline(String band) { p.edit().putString("guidelineBand", band).apply(); }
 
     /** The packages this app suspended, so it only ever resumes its own. */
     Set<String> suspended() { return new HashSet<>(p.getStringSet("suspended", new HashSet<String>())); }

@@ -15,10 +15,10 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -28,21 +28,28 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * The parent's screen, behind the PIN: a kids mode switch on top and a card per TV app with its limit and today's time.
- * Built in code (no layouts, no AndroidX) and made for the remote: everything is focusable and grows when focused.
+ * Two screens. The dashboard opens first, without a PIN, and only shows the usage history. "Limits and settings" asks
+ * for the parent PIN and opens a list in the style of a TV's own settings: kids mode, the schedule, a row per app with
+ * its limit, setup and the PIN. Built in code (no layouts, no AndroidX) and made for the remote.
  */
 public class MainActivity extends Activity {
     private static final int[] LIMITS = {15, 30, 45, 60, 90, 120, 180};
 
     // The icon's night palette.
-    private static final int SKY_TOP = 0xFF2E3375, SKY_BOTTOM = 0xFF14173A, CARD = 0xFF262B5C, CARD_FOCUS = 0xFF3A4190;
-    private static final int MOON = 0xFFF4C542, CORAL = 0xFFE07A5F, GREEN = 0xFF7BC67E, MUTED = 0xFFB8BCE0;
+    static final int SKY_TOP = 0xFF2E3375, SKY_BOTTOM = 0xFF14173A;
+    static final int MOON = 0xFFF4C542, CORAL = 0xFFE07A5F, GREEN = 0xFF7BC67E, MUTED = 0xFFB8BCE0;
+    /** A settings row: faint on the night sky, near white with dark text when focused. */
+    private static final int ROW = 0x1AFFFFFF, ROW_FOCUS = 0xFFF2F2F7, ROW_FOCUS_MUTED = 0xFF4A4F7A;
 
+    static final String SETTINGS = "settings";
     private static final String KIDS = "kids", SETUP = "setup", PIN = "pin";
 
     private Guard guard;
-    private LinearLayout content;
+    private FrameLayout root;
+    /** The settings are showing; false is the dashboard. Only true after the PIN. */
     private boolean unlocked;
+    /** The dashboard's range, an index into Usage.RANGES. */
+    private int range;
     private AlertDialog pinDialog;
     /** What had focus before a refresh (a package or one of the tags above), to put it back after. */
     private String focusTag;
@@ -50,108 +57,133 @@ public class MainActivity extends Activity {
     @Override protected void onCreate(Bundle saved) {
         super.onCreate(saved);
         guard = Guard.get(this);
-        content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(56), dp(36), dp(56), dp(36));
-        content.setClipChildren(false);
-        content.setClipToPadding(false);
-        ScrollView scroll = new ScrollView(this);
-        scroll.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{SKY_TOP, SKY_BOTTOM}));
-        scroll.setFillViewport(true);
-        scroll.addView(content);
-        setContentView(scroll);
+        root = new FrameLayout(this);
+        root.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{SKY_TOP, SKY_BOTTOM}));
+        setContentView(root);
     }
 
     @Override protected void onStart() {
         super.onStart();
-        if (!unlocked) askPin();
-        else refresh();
+        refresh();
     }
 
-    /** Leaving the screen locks it again, so a kid can't come back to it later. */
+    /** Leaving the screen locks the settings again, so a kid can't come back to them later. */
     @Override protected void onStop() {
         super.onStop();
         unlocked = false;
-        content.removeAllViews();
+        focusTag = null;
+        root.removeAllViews();
         if (pinDialog != null) pinDialog.dismiss();
     }
 
-    // MARK: - PIN
+    /** Back from the settings goes to the dashboard, and locks them. */
+    @Override public void onBackPressed() {
+        if (!unlocked) {
+            super.onBackPressed();
+            return;
+        }
+        unlocked = false;
+        root.removeAllViews(); // so refresh doesn't put the focus back on the row that had it
+        focusTag = SETTINGS;
+        refresh();
+    }
 
-    private void askPin() {
+    void showRange(int index) {
+        range = index;
+        focusTag = "range" + index;
+        refresh();
+    }
+
+    /**
+     * From the dashboard: the PIN, then the settings. A wrong or cancelled PIN stays on the dashboard. The first time
+     * there is no PIN yet, so this is where the parent creates it.
+     */
+    void openSettings() {
         if (!guard.store.hasPin()) {
-            newPin(this::unlock);
+            newPin(this::showSettings, null);
             return;
         }
         long wait = Pin.lockoutMs(guard.store.pinFailures()) - (System.currentTimeMillis() - guard.store.pinLastFailure());
         if (wait > 0) {
             Toast.makeText(this, getString(R.string.pin_wait, (int) (wait / 1000) + 1), Toast.LENGTH_LONG).show();
-            finish();
             return;
         }
         pinPrompt(getString(R.string.enter_pin), pin -> {
             if (guard.store.pinMatches(pin)) {
                 guard.store.pinPassed();
-                unlock();
+                showSettings();
             } else {
                 guard.store.pinFailed(System.currentTimeMillis());
                 Toast.makeText(this, R.string.pin_wrong, Toast.LENGTH_SHORT).show();
-                askPin();
+                openSettings();
             }
-        });
+        }, null);
     }
 
-    private void unlock() {
+    // MARK: - PIN
+
+    private void showSettings() {
         unlocked = true;
+        root.removeAllViews();
+        focusTag = KIDS;
         refresh();
     }
 
-    /** Asks for a new PIN twice; `then` runs once it is saved. */
-    private void newPin(final Runnable then) {
+    /** Asks for a new PIN twice; `then` runs once it is saved, `cancelled` (may be null) if the parent backs out. */
+    private void newPin(final Runnable then, final Runnable cancelled) {
         pinPrompt(getString(R.string.create_pin), first -> {
             if (!Pin.wellFormed(first)) {
                 Toast.makeText(this, R.string.pin_bad, Toast.LENGTH_SHORT).show();
-                newPin(then);
+                newPin(then, cancelled);
                 return;
             }
             pinPrompt(getString(R.string.confirm_pin), second -> {
                 if (!first.equals(second)) {
                     Toast.makeText(this, R.string.pin_mismatch, Toast.LENGTH_SHORT).show();
-                    newPin(then);
+                    newPin(then, cancelled);
                     return;
                 }
                 guard.store.setPin(first);
                 then.run();
-            });
-        });
+            }, cancelled);
+        }, cancelled);
     }
 
     private interface PinEntered { void entered(String pin); }
 
     /**
      * The PIN on an on-screen keypad: the TV's own keyboard sends people to their phone. Arrows and OK move through the
-     * keys; a remote's number keys and Back/Delete work too. Cancelling closes the app: nothing behind it is reachable
-     * without a PIN.
+     * keys; a remote's number keys and Back/Delete work too. Cancelling runs `cancelled` (may be null) and leaves what
+     * was behind it, which is never more than the dashboard or the settings already unlocked.
      */
-    private void pinPrompt(String title, final PinEntered done) {
+    private void pinPrompt(String title, final PinEntered done, final Runnable cancelled) {
         final StringBuilder pin = new StringBuilder();
-        final TextView dots = text(" ", 34, Color.WHITE, true);
+        final LinearLayout dots = new LinearLayout(this);
         dots.setGravity(Gravity.CENTER);
-        dots.setLetterSpacing(0.3f);
-        dots.setPadding(0, dp(4), 0, dp(16));
+        dots.setPadding(0, dp(16), 0, dp(20));
+        // Four empty dots to start with; a longer PIN adds its own.
         final Runnable show = () -> {
-            StringBuilder b = new StringBuilder();
-            for (int i = 0; i < 8; i++) b.append(i < pin.length() ? "●" : i < 4 ? "○" : "");
-            dots.setText(b);
+            dots.removeAllViews();
+            for (int i = 0; i < Math.max(4, pin.length()); i++) {
+                GradientDrawable dot = new GradientDrawable();
+                dot.setShape(GradientDrawable.OVAL);
+                if (i < pin.length()) dot.setColor(MOON);
+                else dot.setStroke(dp(2), MUTED);
+                View v = new View(this);
+                v.setBackground(dot);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(14), dp(14));
+                lp.setMargins(dp(7), 0, dp(7), 0);
+                dots.addView(v, lp);
+            }
         };
         show.run();
 
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER_HORIZONTAL);
-        box.setPadding(dp(24), dp(8), dp(24), dp(8));
+        box.setPadding(dp(24), dp(12), dp(24), dp(16));
         box.setClipChildren(false);
-        box.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{SKY_TOP, SKY_BOTTOM}));
+        box.setBackground(panel());
         TextView heading = text(title, 20, Color.WHITE, true);
         heading.setGravity(Gravity.CENTER);
         heading.setPadding(0, dp(12), 0, dp(4));
@@ -190,7 +222,7 @@ public class MainActivity extends Activity {
         box.addView(keys, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         dialog[0] = new AlertDialog.Builder(this).setView(box)
-                .setOnCancelListener(d -> finish())
+                .setOnCancelListener(d -> { if (cancelled != null) cancelled.run(); })
                 .setOnKeyListener((d, code, e) -> {
                     if (e.getAction() != android.view.KeyEvent.ACTION_DOWN) return false;
                     if (code >= android.view.KeyEvent.KEYCODE_0 && code <= android.view.KeyEvent.KEYCODE_9) {
@@ -206,152 +238,198 @@ public class MainActivity extends Activity {
                 })
                 .create();
         pinDialog = dialog[0];
-        pinDialog.show();
+        showPanel(pinDialog, 360);
         if (five != null) five.requestFocus();
     }
 
     // MARK: - Screen
 
     private void refresh() {
-        if (!unlocked) return;
         View focused = getCurrentFocus();
         if (focused != null && focused.getTag() instanceof String) focusTag = (String) focused.getTag();
-        content.removeAllViews();
-        String today = Guard.today();
-        boolean kids = guard.store.kidsMode(), ready = guard.serviceEnabled();
+        root.removeAllViews();
+        root.addView(unlocked ? settings() : new Dashboard(this, guard).build(range));
+        View again = focusTag == null ? null : root.findViewWithTag(focusTag);
+        if (again == null) again = root.findViewWithTag(unlocked ? KIDS : "range" + range);
+        if (again != null) again.requestFocus();
+    }
 
-        // Header: icon, name and the kids mode switch.
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setClipChildren(false);
+    /** The settings: what kids mode is doing on the left, and on the right a list to go down with the remote. */
+    private View settings() {
+        String today = Guard.today();
+        final boolean kids = guard.store.kidsMode(), ready = guard.serviceEnabled();
+
+        LinearLayout screen = new LinearLayout(this);
+        screen.setClipChildren(false);
+
+        // Left: the icon, the name and what kids mode is doing now. It stays put while the list scrolls.
+        LinearLayout about = new LinearLayout(this);
+        about.setOrientation(LinearLayout.VERTICAL);
+        about.setGravity(Gravity.CENTER);
+        about.setPadding(dp(56), dp(36), dp(24), dp(36));
         ImageView logo = new ImageView(this);
         logo.setImageResource(R.drawable.icon);
-        header.addView(logo, new LinearLayout.LayoutParams(dp(56), dp(56)));
+        about.addView(logo, new LinearLayout.LayoutParams(dp(128), dp(128)));
         TextView title = text(getString(R.string.app_name), 30, Color.WHITE, true);
-        title.setPadding(dp(16), 0, 0, 0);
-        header.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        TextView kidsSwitch = pill(getString(kids ? R.string.kids_mode_on : R.string.kids_mode_off), kids ? GREEN : 0x33FFFFFF,
-                kids ? SKY_BOTTOM : Color.WHITE, KIDS, () -> {
+        title.setGravity(Gravity.CENTER);
+        title.setPadding(0, dp(20), 0, dp(10));
+        about.addView(title);
+        TextView hint = text(getString(kids ? R.string.kids_hint_on : R.string.kids_hint_off) + " " + whenItChanges(), 16, MUTED, false);
+        hint.setGravity(Gravity.CENTER_HORIZONTAL);
+        hint.setMinLines(3); // the text changes with kids mode; the block above must not jump
+        about.addView(hint, new LinearLayout.LayoutParams(dp(280), ViewGroup.LayoutParams.WRAP_CONTENT));
+        screen.addView(about, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 2));
+
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(24), dp(36), dp(56), dp(36));
+        list.setClipChildren(false);
+        list.setClipToPadding(false);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setClipChildren(false);
+        scroll.setClipToPadding(false);
+        scroll.addView(list);
+        screen.addView(scroll, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 3));
+
+        // Without the service nothing is enforced or recorded: say so before anything else.
+        if (!ready) list.addView(row(SETUP, null, getString(R.string.setup_needed), "", CORAL, () -> setup(null)));
+        list.addView(row(KIDS, null, getString(R.string.kids_mode), getString(kids ? R.string.state_on : R.string.state_off),
+                kids ? GREEN : MUTED, () -> {
                     // Kids mode without setup would show limits that nothing enforces: set up first, then turn it on.
                     if (!kids && !guard.serviceEnabled()) setup(() -> setKidsMode(true));
                     else setKidsMode(!kids);
-                });
-        kidsSwitch.setTextSize(20);
-        header.addView(kidsSwitch);
-        content.addView(header);
-        TextView hint = text(getString(kids ? R.string.kids_hint_on : R.string.kids_hint_off) + " " + whenItChanges(), 16, MUTED, false);
-        hint.setPadding(dp(72), dp(4), 0, dp(20));
-        content.addView(hint);
+                }));
 
-        // Without the service nothing is enforced: say so before anything else.
-        if (!ready) {
-            TextView warning = pill(getString(R.string.setup_needed), CORAL, Color.WHITE, SETUP, () -> setup(null));
-            warning.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.bottomMargin = dp(20);
-            content.addView(warning, lp);
-        }
-
-        // The schedule: a button per window, and one to add a window.
-        content.addView(sectionTitle(getString(R.string.schedule_title)));
-        LinearLayout windows = new LinearLayout(this);
-        windows.setClipChildren(false);
-        windows.setPadding(0, 0, 0, dp(24));
+        list.addView(listTitle(getString(R.string.schedule_title)));
         List<Schedule.Window> schedule = guard.store.windows();
         for (int i = 0; i < schedule.size(); i++) {
             final int index = i;
-            windows.addView(pill(describe(schedule.get(i)), 0x33FFFFFF, Color.WHITE, "window" + i, () -> windowMenu(index)), spaced());
+            list.addView(row("window" + i, null, describe(schedule.get(i)), "›", MUTED, () -> windowMenu(index)));
         }
-        windows.addView(pill(getString(R.string.schedule_add), 0x1AFFFFFF, MOON, "window+", () -> editWindow(-1)), spaced());
-        content.addView(windows);
+        list.addView(row("window+", null, getString(R.string.schedule_add), "", MUTED, () -> editWindow(-1)));
 
-        // A card per app.
-        content.addView(sectionTitle(getString(R.string.apps_title)));
-        int available = getResources().getDisplayMetrics().widthPixels - dp(112);
-        int columns = Math.max(2, available / dp(200));
-        int cardWidth = available / columns - dp(16);
-        GridLayout grid = new GridLayout(this);
-        grid.setColumnCount(columns);
-        grid.setClipChildren(false);
-        for (ResolveInfo app : tvApps()) grid.addView(card(app, today, cardWidth, kids));
-        content.addView(grid);
+        list.addView(listTitle(getString(R.string.guideline_title)));
+        list.addView(row("guideline", null, getString(R.string.guideline_age), guidelineText(), MUTED, this::pickGuideline));
+
+        list.addView(listTitle(getString(R.string.apps_title)));
+        PackageManager pm = getPackageManager();
+        for (ResolveInfo app : tvApps()) {
+            final String pkg = app.activityInfo.packageName;
+            list.addView(row(pkg, app.loadIcon(pm), guard.label(pkg), limitText(pkg, today, kids), MUTED, () -> pickLimit(pkg)));
+        }
         guard.store.saveBudget(guard.budget);
 
-        // Footer.
-        LinearLayout footer = new LinearLayout(this);
-        footer.setGravity(Gravity.END);
-        footer.setClipChildren(false);
-        footer.setPadding(0, dp(24), 0, 0);
-        if (ready) footer.addView(pill(getString(R.string.setup_ok), 0x33FFFFFF, Color.WHITE, SETUP, () -> setup(null)));
-        TextView pin = pill(getString(R.string.change_pin), 0x33FFFFFF, Color.WHITE, PIN, () -> newPin(() -> {
+        list.addView(listTitle(getString(R.string.app_name)));
+        if (ready) list.addView(row(SETUP, null, getString(R.string.setup_ok), "›", MUTED, () -> setup(null)));
+        list.addView(row(PIN, null, getString(R.string.change_pin), "›", MUTED, () -> newPin(() -> {
             Toast.makeText(this, R.string.pin_changed, Toast.LENGTH_SHORT).show();
             refresh();
-        }));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.leftMargin = dp(12);
-        footer.addView(pin, lp);
-        content.addView(footer);
-
-        View again = focusTag == null ? null : content.findViewWithTag(focusTag);
-        (again != null ? again : kidsSwitch).requestFocus();
+        }, null)));
+        return screen;
     }
 
-    /** The app's banner (or icon), its name, its limit and a bar of today's time. */
-    private View card(ResolveInfo app, String today, int width, boolean counting) {
-        final String pkg = app.activityInfo.packageName;
-        PackageManager pm = getPackageManager();
-        Integer limit = guard.budget.limits.get(pkg);
-        int inner = width - dp(28);
+    // MARK: - The daily guideline
 
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(14), dp(14), dp(14), dp(14));
-        card.setBackground(focusable(CARD, CARD_FOCUS, dp(18)));
-        makeFocusable(card, pkg, () -> pickLimit(pkg));
+    private static final int[] AGES = {R.string.age_under2, R.string.age_2to4, R.string.age_5to17};
 
-        Drawable banner = app.activityInfo.loadBanner(pm);
-        ImageView image = new ImageView(this);
-        image.setImageDrawable(banner != null ? banner : app.loadIcon(pm));
-        image.setScaleType(banner != null ? ImageView.ScaleType.CENTER_CROP : ImageView.ScaleType.FIT_CENTER);
-        GradientDrawable clip = new GradientDrawable();
-        clip.setCornerRadius(dp(10));
-        image.setBackground(clip);
-        image.setClipToOutline(true);
-        card.addView(image, new LinearLayout.LayoutParams(inner, inner * 9 / 16));
+    /** "5 to 17 years · 2 h a day", or what was chosen instead of an age. */
+    private String guidelineText() {
+        String band = guard.store.guideline();
+        int age = java.util.Arrays.asList(Usage.BANDS).indexOf(band), minutes = Usage.guidelineMinutes(band);
+        if (age < 0) return getString(band.isEmpty() ? R.string.guideline_unset : R.string.state_off);
+        return minutes == 0 ? getString(AGES[age]) : getString(R.string.guideline_value, getString(AGES[age]), duration(minutes * Budget.MINUTE));
+    }
 
-        TextView name = text(guard.label(pkg), 17, Color.WHITE, true);
+    /** The age of the youngest child decides the guideline the dashboard compares kids-mode days with. */
+    private void pickGuideline() {
+        String[] items = new String[AGES.length + 1];
+        for (int i = 0; i < AGES.length; i++) items[i] = getString(AGES[i]);
+        items[AGES.length] = getString(R.string.guideline_off);
+        String band = guard.store.guideline();
+        int checked = band.equals("off") ? AGES.length : java.util.Arrays.asList(Usage.BANDS).indexOf(band);
+        choose(getString(R.string.guideline_age), items, checked, picked -> {
+            guard.store.guideline(picked < AGES.length ? Usage.BANDS[picked] : "off");
+            refresh();
+        });
+    }
+
+    /**
+     * Under a limit list: the guideline is for the whole day across all apps, and what the other apps already allow
+     * on those days (`days` 0 leaves that out). Null without a guideline.
+     */
+    private String limitNote(String pkg, int days) {
+        String band = guard.store.guideline();
+        int minutes = Usage.guidelineMinutes(band), others = 0;
+        if (minutes == 0) return null;
+        String note = getString(R.string.limit_note, getString(AGES[java.util.Arrays.asList(Usage.BANDS).indexOf(band)]), duration(minutes * Budget.MINUTE));
+        if (days != 0) for (String other : guard.budget.limits.keySet()) {
+            if (!other.equals(pkg)) others += Math.max(0, guard.budget.limitOn(other, days == Budget.WEEKEND ? 5 : 0));
+        }
+        return others == 0 ? note : note + " " + getString(R.string.limit_note_others, duration(others * Budget.MINUTE));
+    }
+
+    /** A section title over rows: in line with their text, and closer to its own rows than to the ones above. */
+    private TextView listTitle(String s) {
+        TextView t = sectionTitle(s);
+        t.setPadding(dp(18), dp(20), 0, dp(8));
+        return t;
+    }
+
+    /** "60 min a day · 12 min left today": the app's limit and where today stands. */
+    private String limitText(String pkg, String today, boolean counting) {
+        if (!guard.budget.limits.containsKey(pkg)) return getString(R.string.no_limit);
+        // With different limits by day, say which days today's one belongs to.
+        String days = guard.budget.split(pkg) ? days(Budget.weekday(today) < 5 ? Budget.WEEKDAYS : Budget.WEEKEND) + "  ·  " : "";
+        Integer limit = guard.budget.limit(pkg, today);
+        if (limit == null) return days + getString(R.string.no_limit);
+        if (limit == 0 && extra(pkg) == 0) return days + getString(R.string.not_allowed);
+        long leftMin = (guard.budget.remainingMs(pkg, today) + Budget.MINUTE - 1) / Budget.MINUTE;
+        String state = !counting ? getString(R.string.counts_in_kids_mode)
+                : leftMin == 0 ? getString(R.string.out_today) : getString(R.string.left_today, leftMin);
+        // "Mon–Fri 30 min" already says it is by day; the longer "30 min a day" would push the app's name out of the row.
+        String amount = limit == 0 ? getString(R.string.not_allowed) : days.isEmpty() ? getString(R.string.minutes, limit)
+                : days(Budget.weekday(today) < 5 ? Budget.WEEKDAYS : Budget.WEEKEND) + " " + getString(R.string.duration_m, limit);
+        return (limit == 0 ? days : "") + amount + "  ·  " + state;
+    }
+
+    /** One line of the list: an optional icon, the name on the left and its value on the right. */
+    private View row(String tag, Drawable icon, String label, String value, int valueColor, Runnable action) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(18), dp(12), dp(18), dp(12));
+        row.setMinimumHeight(dp(56));
+        row.setBackground(focusable(ROW, ROW_FOCUS, dp(14)));
+        makeFocusable(row, tag, action, 1.03f);
+        if (icon != null) {
+            ImageView image = new ImageView(this);
+            image.setImageDrawable(icon);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(32), dp(32));
+            lp.rightMargin = dp(14);
+            row.addView(image, lp);
+        }
+        TextView name = text(label, 18, Color.WHITE, true);
+        name.setTextColor(onFocus(Color.WHITE, SKY_BOTTOM));
+        name.setDuplicateParentStateEnabled(true);
         name.setSingleLine(true);
         name.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        name.setPadding(0, dp(10), 0, 0);
-        card.addView(name, new LinearLayout.LayoutParams(inner, ViewGroup.LayoutParams.WRAP_CONTENT));
+        row.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        TextView side = text(value, value.equals("›") ? 22 : 16, valueColor, false);
+        side.setSingleLine(true);
+        side.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        side.setMaxWidth(dp(380));
+        // On the white focused row the state keeps its meaning, in a shade that reads on white.
+        side.setTextColor(onFocus(valueColor, valueColor == GREEN ? 0xFF2E7D32 : valueColor == CORAL ? 0xFFB5482F : ROW_FOCUS_MUTED));
+        side.setDuplicateParentStateEnabled(true);
+        side.setPadding(dp(16), 0, 0, 0);
+        row.addView(side);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.bottomMargin = dp(8);
+        row.setLayoutParams(lp);
+        return row;
+    }
 
-        if (limit == null) {
-            card.addView(text(getString(R.string.no_limit), 14, MUTED, false));
-        } else if (limit == 0 && extra(pkg) == 0) {
-            card.addView(text(getString(R.string.not_allowed), 14, counting ? CORAL : MUTED, false));
-        } else {
-            long leftMin = (guard.budget.remainingMs(pkg, today) + Budget.MINUTE - 1) / Budget.MINUTE;
-            int total = limit + extra(pkg);
-            card.addView(text(limit == 0 ? getString(R.string.not_allowed) : getString(R.string.minutes, limit), 14, MUTED, false));
-            ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-            bar.setMax(total);
-            bar.setProgress((int) (total - leftMin));
-            int color = !counting ? MUTED : leftMin == 0 ? CORAL : leftMin * 4 <= total ? MOON : GREEN;
-            bar.setProgressTintList(ColorStateList.valueOf(color));
-            bar.setProgressBackgroundTintList(ColorStateList.valueOf(0x40FFFFFF));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(inner, dp(8));
-            lp.topMargin = dp(8);
-            card.addView(bar, lp);
-            String state = !counting ? getString(R.string.counts_in_kids_mode)
-                    : leftMin == 0 ? getString(R.string.out_today) : getString(R.string.left_today, leftMin);
-            card.addView(text(state, 13, color, false));
-        }
-
-        GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-        lp.width = width;
-        lp.setMargins(0, 0, dp(16), dp(16));
-        card.setLayoutParams(lp);
-        return card;
+    private static ColorStateList onFocus(int normal, int focused) {
+        return new ColorStateList(new int[][]{{android.R.attr.state_focused}, {}}, new int[]{focused, normal});
     }
 
     private int extra(String pkg) {
@@ -377,29 +455,158 @@ public class MainActivity extends Activity {
         return apps;
     }
 
+    /** "Mon–Fri" or "Sat–Sun", in the TV's language. */
+    private static String days(int group) {
+        java.util.Locale locale = java.util.Locale.getDefault();
+        boolean week = group == Budget.WEEKDAYS;
+        return java.time.DayOfWeek.of(week ? 1 : 6).getDisplayName(java.time.format.TextStyle.SHORT, locale) + "–"
+                + java.time.DayOfWeek.of(week ? 5 : 7).getDisplayName(java.time.format.TextStyle.SHORT, locale);
+    }
+
+    /** "No limit", "Not allowed in kids mode" or "30 min a day". */
+    private String limitName(int minutes) {
+        return minutes < 0 ? getString(R.string.no_limit) : minutes == 0 ? getString(R.string.not_allowed) : getString(R.string.minutes, minutes);
+    }
+
+    /**
+     * An app's limit. With one limit for every day: more time for today, a way into different limits for the weekend,
+     * then the limits to pick from. With different limits already: the two groups of days, each opening its own list.
+     */
     private void pickLimit(final String pkg) {
+        pickLimit(pkg, -1);
+    }
+
+    /** `focus` is the row to start on in the two-group panel, -1 for the first. */
+    private void pickLimit(final String pkg, int focus) {
         final String today = Guard.today();
-        Integer limit = guard.budget.limits.get(pkg);
-        // No limit, blocked (a limit of 0), then the minutes.
-        String[] items = new String[LIMITS.length + 2];
-        items[0] = getString(R.string.no_limit);
-        items[1] = getString(R.string.not_allowed);
-        int checked = limit == null ? 0 : limit == 0 ? 1 : 0;
-        for (int i = 0; i < LIMITS.length; i++) {
-            items[i + 2] = getString(R.string.minutes, LIMITS[i]);
-            if (limit != null && limit == LIMITS[i]) checked = i + 2;
-        }
-        AlertDialog.Builder dialog = new AlertDialog.Builder(this).setTitle(guard.label(pkg))
-                .setSingleChoiceItems(items, checked, (d, which) -> {
-                    guard.budget.setLimit(pkg, which == 0 ? Budget.NO_LIMIT : which == 1 ? 0 : LIMITS[which - 2]);
+        final Budget budget = guard.budget;
+        final int extra = budget.limit(pkg, today) != null ? 1 : 0;
+        if (budget.split(pkg) || focus >= 0) {
+            String[] items = new String[3 + extra], values = new String[3 + extra];
+            if (extra == 1) items[0] = getString(R.string.extra_today);
+            items[extra] = days(Budget.WEEKDAYS);
+            values[extra] = limitName(budget.limitOn(pkg, 0));
+            items[extra + 1] = days(Budget.WEEKEND);
+            values[extra + 1] = limitName(budget.limitOn(pkg, 5));
+            items[extra + 2] = getString(R.string.same_every_day);
+            choose(guard.label(pkg), limitNote(pkg, 0), items, values, -1, focus < 0 ? extra : Math.min(focus + extra, items.length - 1), picked -> {
+                int which = picked - extra;
+                if (which < 0) {
+                    budget.grantExtra(pkg, 30, today);
                     changed();
-                    d.dismiss();
-                });
-        if (limit != null) dialog.setNeutralButton(R.string.extra_today, (d, w) -> {
-            guard.budget.grantExtra(pkg, 30, today);
+                } else if (which == 2) {
+                    budget.setLimit(pkg, budget.limitOn(pkg, 0));
+                    changed();
+                } else pickLimit(pkg, which == 0 ? Budget.WEEKDAYS : Budget.WEEKEND, 1); // back on the weekend row: next to set, or the one just set
+            });
+            return;
+        }
+        // The first choice of a group seeds the other with what the app had, so only the one that differs needs setting.
+        String[] items = new String[extra + 1];
+        if (extra == 1) items[0] = getString(R.string.extra_today);
+        items[extra] = getString(R.string.different_weekends);
+        pickLimit(pkg, Budget.ALL_DAYS, -1, items);
+    }
+
+    private void pickLimit(final String pkg, final int days, final int next) {
+        pickLimit(pkg, days, next, new String[0]);
+    }
+
+    /**
+     * The list of limits for `days`. `first` are rows shown before it: "+30 min today" when there is one to add to,
+     * and "Different on weekends". `next` is the row of the two-group panel to come back to, -1 to close.
+     */
+    private void pickLimit(final String pkg, final int days, final int next, final String[] first) {
+        final String today = Guard.today();
+        final int n = first.length;
+        int current = guard.budget.limitOn(pkg, days == Budget.WEEKEND ? 5 : 0);
+        String[] items = new String[LIMITS.length + 2 + n];
+        System.arraycopy(first, 0, items, 0, n);
+        items[n] = getString(R.string.no_limit);
+        items[n + 1] = getString(R.string.not_allowed);
+        int checked = current < 0 ? n : current == 0 ? n + 1 : -1;
+        for (int i = 0; i < LIMITS.length; i++) {
+            items[i + 2 + n] = getString(R.string.minutes, LIMITS[i]);
+            if (current == LIMITS[i]) checked = i + 2 + n;
+        }
+        String title = guard.label(pkg) + (days == Budget.ALL_DAYS ? "" : "  ·  " + days(days));
+        choose(title, limitNote(pkg, days), items, null, checked, checked, picked -> {
+            int which = picked - n;
+            if (which == -1) {
+                pickLimit(pkg, 0); // "Different on weekends": the two groups, starting from the same limit
+                return;
+            }
+            if (which < 0) guard.budget.grantExtra(pkg, 30, today);
+            else guard.budget.setLimit(pkg, days, which == 0 ? Budget.NO_LIMIT : which == 1 ? 0 : LIMITS[which - 2]);
             changed();
+            if (next >= 0) pickLimit(pkg, next);
         });
+    }
+
+    private interface Chosen { void chosen(int which); }
+
+    private void choose(String title, String[] items, int checked, final Chosen done) {
+        choose(title, null, items, null, checked, checked, done);
+    }
+
+    /**
+     * A list to pick one item from, in the app's own look. `checked` (or -1) carries a dot, `focus` (or -1 for the
+     * top) starts with the focus, `values` (or null) puts each row's current value on its right, and `note` (or null)
+     * is a line of context under the title. Back closes it without choosing.
+     */
+    private void choose(String title, String note, String[] items, String[] values, int checked, int focus, final Chosen done) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(8), dp(20), dp(8), dp(12));
+        box.setBackground(panel());
+        TextView heading = text(title, 20, Color.WHITE, true);
+        heading.setPadding(dp(30), 0, dp(30), dp(note == null ? 14 : 6));
+        box.addView(heading);
+        if (note != null) {
+            TextView context = text(note, 14, MUTED, false);
+            context.setPadding(dp(30), 0, dp(30), dp(12));
+            box.addView(context);
+        }
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(12), dp(4), dp(12), 0);
+        list.setClipChildren(false);
+        list.setClipToPadding(false);
+        final AlertDialog[] dialog = new AlertDialog[1];
+        View first = null;
+        for (int i = 0; i < items.length; i++) {
+            final int which = i;
+            String value = values != null && values[i] != null ? values[i] : i == checked ? "●" : "";
+            View item = row("choice" + i, null, items[i], value, value.equals("●") ? MOON : MUTED, () -> {
+                dialog[0].dismiss();
+                done.chosen(which);
+            });
+            list.addView(item);
+            if (first == null || i == focus) first = item;
+        }
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(list);
+        // Six rows at most (five under a note), so a long list scrolls inside the panel instead of touching the screen's edges.
+        int rows = note == null ? 6 : 5;
+        box.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, items.length > rows ? dp(rows * 64 + 4) : ViewGroup.LayoutParams.WRAP_CONTENT));
+        dialog[0] = new AlertDialog.Builder(this).setView(box).create();
+        showPanel(dialog[0], 440);
+        if (first != null) first.requestFocus();
+    }
+
+    /** The night sky with round corners: what the app's own dialogs sit on. */
+    private Drawable panel() {
+        GradientDrawable d = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{SKY_TOP, SKY_BOTTOM});
+        d.setCornerRadius(dp(20));
+        d.setStroke(dp(1), 0x33FFFFFF);
+        return d;
+    }
+
+    /** Shows a dialog whose view draws its own `panel()`: no stock background behind it, and no wider than it needs. */
+    private void showPanel(AlertDialog dialog, int widthDp) {
         dialog.show();
+        dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+        dialog.getWindow().setLayout(dp(widthDp), ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
     private void changed() {
@@ -443,16 +650,14 @@ public class MainActivity extends Activity {
     }
 
     private void windowMenu(final int index) {
-        new AlertDialog.Builder(this).setTitle(describe(guard.store.windows().get(index)))
-                .setItems(new String[]{getString(R.string.schedule_edit), getString(R.string.schedule_delete)}, (d, which) -> {
-                    if (which == 0) editWindow(index);
-                    else {
-                        List<Schedule.Window> all = guard.store.windows();
-                        all.remove(index);
-                        saveWindows(all);
-                    }
-                })
-                .show();
+        choose(describe(guard.store.windows().get(index)), new String[]{getString(R.string.schedule_edit), getString(R.string.schedule_delete)}, -1, which -> {
+            if (which == 0) editWindow(index);
+            else {
+                List<Schedule.Window> all = guard.store.windows();
+                all.remove(index);
+                saveWindows(all);
+            }
+        });
     }
 
     /** Days, then start, then end; `index` -1 adds a window. */
@@ -496,12 +701,7 @@ public class MainActivity extends Activity {
     private void pickTime(int title, int current, final TimePicked done) {
         String[] slots = new String[48];
         for (int i = 0; i < 48; i++) slots[i] = clock(i * 30);
-        new AlertDialog.Builder(this).setTitle(title)
-                .setSingleChoiceItems(slots, Math.min(47, current / 30), (d, which) -> {
-                    d.dismiss();
-                    done.picked(which * 30);
-                })
-                .show();
+        choose(getString(title), slots, Math.min(47, current / 30), which -> done.picked(which * 30));
     }
 
     private void saveWindows(List<Schedule.Window> windows) {
@@ -510,12 +710,6 @@ public class MainActivity extends Activity {
         guard.scheduleAlarm();
         guard.reconcile(null);
         refresh();
-    }
-
-    private LinearLayout.LayoutParams spaced() {
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.rightMargin = dp(12);
-        return lp;
     }
 
     private void setKidsMode(boolean on) {
@@ -535,13 +729,13 @@ public class MainActivity extends Activity {
                     Toast.LENGTH_LONG).show();
             if (error == null && then != null) then.run();
             // The service shows up as enabled a moment after the setting changes.
-            content.postDelayed(this::refresh, 1500);
+            root.postDelayed(this::refresh, 1500);
         });
     }
 
     // MARK: - Small view helpers
 
-    private TextView text(String s, float sp, int color, boolean bold) {
+    TextView text(String s, float sp, int color, boolean bold) {
         TextView t = new TextView(this);
         t.setText(s);
         t.setTextSize(sp);
@@ -550,20 +744,29 @@ public class MainActivity extends Activity {
         return t;
     }
 
-    private TextView sectionTitle(String s) {
+    TextView sectionTitle(String s) {
         TextView t = text(s.toUpperCase(), 14, MUTED, true);
         t.setLetterSpacing(0.12f);
-        t.setPadding(0, 0, 0, dp(12));
+        t.setPadding(0, dp(12), 0, dp(12));
         return t;
     }
 
-    /** A rounded button; focus shows as the moon's yellow ring. */
-    private TextView pill(String s, int fill, int textColor, String tag, Runnable action) {
+    /** "2 h 15 min", or "15 min" under an hour. Whole hours and totals of 100 h or more drop the minutes: "9 h". */
+    String duration(long ms) {
+        long minutes = Math.round(ms / (double) Budget.MINUTE);
+        if (minutes < 60) return getString(R.string.duration_m, (int) minutes);
+        if (minutes >= 6000) return getString(R.string.duration_h, (int) Math.round(minutes / 60.0));
+        return minutes % 60 == 0 ? getString(R.string.duration_h, (int) (minutes / 60)) : getString(R.string.duration_hm, (int) (minutes / 60), (int) (minutes % 60));
+    }
+
+    /** A rounded button; with the focus it turns white with dark text, like a settings row. */
+    TextView pill(String s, int fill, int textColor, String tag, Runnable action) {
         TextView t = text(s, 17, textColor, true);
         t.setGravity(Gravity.CENTER);
         t.setPadding(dp(22), dp(12), dp(22), dp(12));
-        t.setBackground(focusable(fill, fill, dp(28)));
-        makeFocusable(t, tag, action);
+        t.setTextColor(onFocus(textColor, SKY_BOTTOM));
+        t.setBackground(focusable(fill, ROW_FOCUS, dp(28)));
+        makeFocusable(t, tag, action, 1.06f);
         return t;
     }
 
@@ -574,25 +777,24 @@ public class MainActivity extends Activity {
         GradientDrawable on = new GradientDrawable();
         on.setColor(focused);
         on.setCornerRadius(radius);
-        on.setStroke(dp(3), MOON);
         StateListDrawable states = new StateListDrawable();
         states.addState(new int[]{android.R.attr.state_focused}, on);
         states.addState(new int[]{}, off);
         return states;
     }
 
-    private void makeFocusable(final View v, String tag, final Runnable action) {
+    private void makeFocusable(final View v, String tag, final Runnable action, final float grow) {
         v.setTag(tag);
         v.setFocusable(true);
         v.setClickable(true);
         v.setOnClickListener(x -> action.run());
         v.setOnFocusChangeListener((x, has) -> {
-            float scale = has ? 1.06f : 1f;
+            float scale = has ? grow : 1f;
             x.animate().scaleX(scale).scaleY(scale).setDuration(120).start();
         });
     }
 
-    private int dp(int v) {
+    int dp(int v) {
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
 }

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="192" height="192"><defs>
+<linearGradient id="moon" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE9A3"/><stop offset="1" stop-color="#F4C542"/></linearGradient>
+<linearGradient id="coral" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFA387"/><stop offset="1" stop-color="#D8664C"/></linearGradient>
+<linearGradient id="lilac" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B4BAF8"/><stop offset="1" stop-color="#7C84DC"/></linearGradient>
+<linearGradient id="green" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9BDB9D"/><stop offset="1" stop-color="#5FAE63"/></linearGradient>
+</defs>
+<rect x="16" y="40" width="64" height="30" rx="12" fill="url(#coral)"/>
+<rect x="29" y="44" width="20" height="26" rx="9" fill="url(#lilac)"/><circle cx="39" cy="34" r="10" fill="#FFD9B8"/><circle cx="35.4" cy="33.2" r="1.35" fill="#23275C"/><circle cx="42.6" cy="33.2" r="1.35" fill="#23275C"/><path d="M35.4,37.25 q3.6,3.6 7.2,0" fill="none" stroke="#23275C" stroke-width="1.35" stroke-linecap="round"/>
+<rect x="52" y="52" width="15" height="18" rx="7" fill="url(#green)"/><circle cx="59.5" cy="45" r="8" fill="#FFD9B8"/><circle cx="56.5" cy="44.5" r="1.125" fill="#23275C"/><circle cx="62.5" cy="44.5" r="1.125" fill="#23275C"/><path d="M56.5,47.875 q3.0,3.0 6.0,0" fill="none" stroke="#23275C" stroke-width="1.125" stroke-linecap="round"/>
+<rect x="21" y="63" width="54" height="15" rx="6" fill="#FFA387"/>
+<rect x="8" y="54" width="17" height="28" rx="8.5" fill="#D8664C"/><rect x="71" y="54" width="17" height="28" rx="8.5" fill="#D8664C"/>
+<rect x="13" y="81" width="6" height="5" rx="1.5" fill="#8E3E2F"/><rect x="77" y="81" width="6" height="5" rx="1.5" fill="#8E3E2F"/><path d="M78,16 l1.7999999999999998,4.2 4.2,1.7999999999999998 -4.2,1.7999999999999998 -1.7999999999999998,4.2 -1.7999999999999998,-4.2 -4.2,-1.7999999999999998 4.2,-1.7999999999999998z" fill="#FFFFFF" opacity="0.9"/><path d="M20,22 l1.2,2.8 2.8,1.2 -2.8,1.2 -1.2,2.8 -1.2,-2.8 -2.8,-1.2 2.8,-1.2z" fill="#FFFFFF" opacity="0.7"/>
+</svg>

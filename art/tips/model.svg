@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="192" height="192"><defs>
+<linearGradient id="moon" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE9A3"/><stop offset="1" stop-color="#F4C542"/></linearGradient>
+<linearGradient id="coral" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFA387"/><stop offset="1" stop-color="#D8664C"/></linearGradient>
+<linearGradient id="lilac" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B4BAF8"/><stop offset="1" stop-color="#7C84DC"/></linearGradient>
+<linearGradient id="green" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9BDB9D"/><stop offset="1" stop-color="#5FAE63"/></linearGradient>
+</defs>
+<ellipse cx="54" cy="60" rx="23" ry="16" fill="url(#moon)"/><circle cx="72" cy="38" r="12" fill="url(#moon)"/>
+<path d="M82,35 l11,4 -11,5z" fill="url(#coral)"/><circle cx="75" cy="35" r="1.8" fill="#23275C"/><ellipse cx="49" cy="60" rx="12" ry="8" fill="#E3AE2C"/>
+<ellipse cx="17" cy="70" rx="10" ry="7" fill="url(#moon)"/><circle cx="25" cy="60" r="6.5" fill="url(#moon)"/><path d="M30,58.5 l6,2.2 -6,2.6z" fill="url(#coral)"/><circle cx="26.5" cy="58.5" r="1.1" fill="#23275C"/>
+<path d="M4,82 q7,-6 14,0 t14,0 t14,0 t14,0 t14,0 t14,0" fill="none" stroke="url(#lilac)" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="192" height="192"><defs>
+<linearGradient id="moon" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE9A3"/><stop offset="1" stop-color="#F4C542"/></linearGradient>
+<linearGradient id="coral" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFA387"/><stop offset="1" stop-color="#D8664C"/></linearGradient>
+<linearGradient id="lilac" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B4BAF8"/><stop offset="1" stop-color="#7C84DC"/></linearGradient>
+<linearGradient id="green" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9BDB9D"/><stop offset="1" stop-color="#5FAE63"/></linearGradient>
+</defs>
+<polygon points="48.0,20.0 56.2,38.7 76.5,40.7 61.3,54.3 65.6,74.3 48.0,64.0 30.4,74.3 34.7,54.3 19.5,40.7 39.8,38.7" fill="url(#moon)" stroke="#F4C542" stroke-width="6" stroke-linejoin="round"/><circle cx="42.4" cy="49.2" r="2.0999999999999996" fill="#23275C"/><circle cx="53.6" cy="49.2" r="2.0999999999999996" fill="#23275C"/><path d="M42.4,55.5 q5.6,5.6 11.2,0" fill="none" stroke="#23275C" stroke-width="2.0999999999999996" stroke-linecap="round"/><path d="M82,14 l1.7999999999999998,4.2 4.2,1.7999999999999998 -4.2,1.7999999999999998 -1.7999999999999998,4.2 -1.7999999999999998,-4.2 -4.2,-1.7999999999999998 4.2,-1.7999999999999998z" fill="#FFFFFF" opacity="0.9"/><path d="M14,26 l1.2,2.8 2.8,1.2 -2.8,1.2 -1.2,2.8 -1.2,-2.8 -2.8,-1.2 2.8,-1.2z" fill="#FFFFFF" opacity="0.7"/><path d="M80,74 l1.2,2.8 2.8,1.2 -2.8,1.2 -1.2,2.8 -1.2,-2.8 -2.8,-1.2 2.8,-1.2z" fill="#FFFFFF" opacity="0.7"/>
+</svg>

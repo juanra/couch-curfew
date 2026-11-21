@@ -34,7 +34,12 @@ public class GuardService extends AccessibilityService {
 
     private final BroadcastReceiver screen = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
-            guard.onScreen(Intent.ACTION_SCREEN_ON.equals(i.getAction()));
+            String action = i.getAction();
+            if (Intent.ACTION_DREAMING_STARTED.equals(action) || Intent.ACTION_DREAMING_STOPPED.equals(action)) {
+                guard.onDreaming(Intent.ACTION_DREAMING_STARTED.equals(action));
+            } else {
+                guard.onScreen(Intent.ACTION_SCREEN_ON.equals(action));
+            }
         }
     };
 
@@ -43,10 +48,14 @@ public class GuardService extends AccessibilityService {
         guard.attach(this);
         IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_ON);
         f.addAction(Intent.ACTION_SCREEN_OFF);
+        // The screensaver draws over the app in front without a window change: its time is nobody's.
+        f.addAction(Intent.ACTION_DREAMING_STARTED);
+        f.addAction(Intent.ACTION_DREAMING_STOPPED);
         registerReceiver(screen, f);
         handler.postDelayed(tick, TICK_MS);
         guard.reconcile(null);
         guard.scheduleAlarm();
+        guard.pruneHistory();
     }
 
     @Override public void onAccessibilityEvent(AccessibilityEvent e) {

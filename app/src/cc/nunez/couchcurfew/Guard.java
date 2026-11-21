@@ -28,7 +28,8 @@ import java.util.regex.Pattern;
 
 /**
  * The rules at work: counts the time of the app in front while kids mode is on, sends the TV home from an app that is
- * out of time or locked, and keeps `pm suspend` in step with what must be blocked. Budget and screen state live on the
+ * out of time or locked, and keeps `pm suspend` in step with what must be blocked. It also writes every app's time, in
+ * kids mode or not, to the history the dashboard shows. Budget and screen state live on the
  * main thread; every ADB call runs on one background thread, in order.
  */
 final class Guard {
@@ -50,6 +51,7 @@ final class Guard {
 
     final Store store;
     final Budget budget;
+    final History history;
     private final Context app;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService adbThread = Executors.newSingleThreadExecutor();
@@ -63,12 +65,15 @@ final class Guard {
     private String foreground = "";
     private long since = SystemClock.elapsedRealtime();
     private boolean screenOn = true;
+    /** The screensaver is on: the app behind it is not being watched, so the history skips it. The limits still count. */
+    private boolean dreaming;
     private boolean adbErrorShown;
 
     private Guard(Context app) {
         this.app = app;
         store = new Store(app);
         budget = store.loadBudget();
+        history = new History(app);
     }
 
     static String today() {
@@ -93,13 +98,19 @@ final class Guard {
         if (pkg.equals(foreground)) return;
         commit();
         foreground = pkg;
-        if (budget.limits.containsKey(pkg)) Log.i(TAG, "in front: " + pkg + (store.kidsMode() ? ", counting" : ", kids mode off"));
+        if (budget.limit(pkg, today()) != null) Log.i(TAG, "in front: " + pkg + (store.kidsMode() ? ", counting" : ", kids mode off"));
         if (blockedNow().contains(pkg)) kick(pkg);
     }
 
     void onScreen(boolean on) {
         commit();
         screenOn = on;
+        if (!on) dreaming = false; // in case the screensaver's own end never arrives
+    }
+
+    void onDreaming(boolean on) {
+        commit();
+        dreaming = on;
     }
 
     /** Called every few seconds by the service, so time is counted (and the limit hit) while an app stays in front. */
@@ -111,7 +122,16 @@ final class Guard {
         long now = SystemClock.elapsedRealtime(), ms = now - since;
         since = now;
         String pkg = foreground, today = today();
-        if (!store.kidsMode() || !screenOn || service == null || !budget.limits.containsKey(pkg)) return;
+        if (!screenOn || service == null || pkg.isEmpty()) return;
+        boolean kids = store.kidsMode();
+        if (!dreaming) {
+            try {
+                history.add(pkg, label(pkg), LocalDateTime.now(), ms, kids);
+            } catch (android.database.sqlite.SQLiteException e) {
+                Log.w(TAG, "history not written: " + e.getMessage()); // the limits must hold even if the history can't be saved
+            }
+        }
+        if (!kids || budget.limit(pkg, today) == null) return;
         budget.addUsage(pkg, ms, today);
         store.saveBudget(budget);
         long left = budget.remainingMs(pkg, today);
@@ -159,7 +179,7 @@ final class Guard {
 
     /** What a kid sees on a blocked app: in the toast, and in Android's dialog when they open a suspended app. */
     private String message(String pkg) {
-        Integer limit = budget.limits.get(pkg);
+        Integer limit = budget.limit(pkg, today());
         int id = limit == null ? R.string.msg_parents_only : limit == 0 ? R.string.msg_not_allowed : R.string.msg_time_up;
         return app.getString(id);
     }
@@ -297,10 +317,20 @@ final class Guard {
     /** At the alarm: kids mode may have just turned on or off; apply it to what's in front and to the suspended apps. */
     void onAlarm(Runnable done) {
         commit();
+        pruneHistory();
         Log.i(TAG, "alarm: kids mode " + (store.kidsMode() ? "on" : "off"));
         if (!foreground.isEmpty() && blockedNow().contains(foreground)) kick(foreground);
         reconcile(done);
         scheduleAlarm();
+    }
+
+    /** Called at midnight and when the service starts. */
+    void pruneHistory() {
+        try {
+            history.prune(LocalDate.now());
+        } catch (android.database.sqlite.SQLiteException e) {
+            Log.w(TAG, "history not pruned: " + e.getMessage());
+        }
     }
 
     // MARK: - Helpers
