@@ -22,6 +22,7 @@
 - [Screenshots](#screenshots)
 - [Install](#install)
 - [How it works](#how-it-works)
+- [The daily guideline](#the-daily-guideline)
 - [Limits](#limits-read-this)
 - [Recovery](#recovery)
 - [Languages](#languages)
@@ -42,23 +43,46 @@ Couch Curfew is an **unofficial companion** to Free My TV, not part of it.
 
 ## Features
 
+- **A dashboard, open to everyone.** The app opens on a year of history: how long the TV was on, which apps took that
+  time and at what hours, for today, the last 7, 30 or 90 days or the last year. All apps are recorded, in kids mode
+  or not. Seeing it needs no PIN; changing anything does.
+- **A daily guideline for the kids' age.** Pick the youngest child's age and the days turn green, yellow or red:
+  under, close to (from 80%) or over the recommended daily screen time, counting only the time in kids mode. A dashed
+  line marks the guideline and a count ("1 over, 1 close, 5 under") says what the colors say. See
+  [The daily guideline](#the-daily-guideline).
+- **One thing a parent can do, every day.** Under the apps, a short tip with its source and a small drawing: watch
+  together, no screens at meals, turn autoplay off.
 - **Kids mode, behind a parent PIN.** Limits only count while kids mode is on, so grown-ups watch without a timer. The
   PIN is typed on an on-screen keypad with the remote.
 - **A schedule for kids mode.** Windows of days and hours ("Mon–Fri 14:00–20:00", "Sat–Sun 08:00–21:00", even
   "20:00–07:00" across midnight) turn it on and off by themselves. A parent can still switch it by hand; that holds
   until the schedule's next start or end.
 - **A daily limit per app**: 15 minutes to 3 hours, no limit, or **not allowed** in kids mode. Time resets at midnight.
+- **Different limits on weekends.** Each app can have one limit for Monday to Friday and another for Saturday and
+  Sunday: "YouTube, 15 minutes on school days, an hour on weekends", or not allowed during the week at all.
 - **When time is up** the app closes, the TV goes home and the app stays paused until midnight. One minute before, a
   warning shows. Opening a paused app explains why, and tells the kid to ask their parents.
 - **+30 minutes today** for one app, without changing its limit.
 - **Settings and the Play Store are locked in kids mode**, so the limits can't be switched off from the TV's menus:
   opening either one sends the TV home.
-- **Private by design.** Everything is set up on the TV, behind the PIN. No account, no cloud, no tracking: the only
-  network use is the TV's own ADB on `127.0.0.1`.
+- **Private by design.** Everything is set up on the TV, behind the PIN, and the usage history stays in the app's own
+  database on the TV. No account, no cloud, no tracking: the only network use is the TV's own ADB on `127.0.0.1`.
 
 ## Screenshots
 
-![Every app on the TV, with its limit and today's time](docs/images/home.png)
+The last 7 days against the guideline, with the day over it in red:
+
+![Seven days of TV time, colored against the daily guideline](docs/images/dashboard-week.png)
+
+| Today | 30 days |
+|---|---|
+| ![Today's TV time, by app and by hour](docs/images/dashboard-today.png) | ![Thirty days, each one colored against the guideline](docs/images/dashboard-month.png) |
+
+| Limits and settings | A limit for weekdays and another for weekends |
+|---|---|
+| ![Kids mode, the schedule, the guideline and each app's limit](docs/images/settings.png) | ![YouTube with 15 minutes Monday to Friday and 60 on weekends](docs/images/limit-by-day.png) |
+
+The screenshots come from an emulator with sample data.
 
 ## Install
 
@@ -72,9 +96,10 @@ You need an Android TV (8.0 or newer) on the same network as a computer with
    adb connect <tv-ip>:5555
    adb install -r CouchCurfew.apk
    ```
-3. Open **Couch Curfew** from the TV's apps and create the parent PIN.
-4. Pick **Setup**. The TV asks once to allow USB debugging for Couch Curfew: check **Always allow** and accept.
+3. Open **Couch Curfew** from the TV's apps. It opens on the dashboard, which needs no PIN.
+4. Pick the gear (**Limits and settings**), create the parent PIN, then **Setup**. The TV asks once to allow USB debugging for Couch Curfew: check **Always allow** and accept.
 5. Pick a limit for each app you want to limit, then turn **Kids mode** on, or add a **Schedule** window.
+6. Optional: pick **Youngest child's age** to color the dashboard against the daily guideline.
 
 On TCL and other TVs that kill background apps, Setup also grants `APP_AUTO_START`, so the midnight reset, the
 schedule and the restore after a reboot can run.
@@ -84,9 +109,26 @@ schedule and the restore after a reboot can run.
 Like Free My TV, Couch Curfew talks to the TV's own ADB (network debugging, `127.0.0.1:5555`) to run a few fixed
 commands: `pm suspend` and `pm unsuspend` on the apps that must be blocked, `am force-stop` on an app that ran out of
 time, and turning its accessibility service on. The accessibility service only receives window changes (which app is
-in front); it never reads the screen. One alarm wakes it at midnight and at each start or end of a schedule window.
+in front); it never reads the screen. That same signal feeds the history: the time of the app in front goes to a
+local SQLite table, one row per day, hour and app, and rows older than a year are dropped. One alarm wakes it at midnight and at each start or end of a schedule window.
 
 The ADB client is adapted from Free My TV's, under its MIT license.
+
+## The daily guideline
+
+The guideline is a reference on the dashboard, not a lock: nothing is blocked when a day goes over it. The limits per
+app do the blocking.
+
+| Youngest child | Guideline | Source |
+|---|---|---|
+| Under 2 | Screen time is not recommended; the days are not colored | Canadian 24-Hour Movement Guidelines |
+| 2 to 4 | 1 hour a day | Canadian 24-Hour Movement Guidelines |
+| 5 to 17 | 2 hours a day of recreational screen time | Canadian 24-Hour Movement Guidelines |
+
+Only the time in kids mode counts, since kids mode is how the TV knows the kids are watching. On the 90 days and
+1 year views each bar is the daily average of its week or month. A daily number is a starting point, not a medical
+rule: the American Academy of Pediatrics now puts what kids watch, and with whom, ahead of the minutes, and the tips
+on the dashboard follow that.
 
 ## Limits (read this)
 
@@ -107,18 +149,21 @@ is removed while apps are paused, resume them with `adb shell pm unsuspend <pack
 
 ## Languages
 
-English, Spanish, Portuguese (Brazil), French, German, Italian and Russian, following the TV's language. Only English
-and Spanish were written by a native speaker; the others are a first pass, and corrections are welcome as pull
-requests to `app/res/values-*/strings.xml`.
+English, Spanish, Portuguese (Brazil), French, German, Italian, Russian, Chinese (Simplified), Hindi, Arabic and
+Bengali, following the TV's language. Only English and Spanish were written by a native speaker; the others are a
+first pass, and corrections are welcome as pull requests to `app/res/values-*/strings.xml`. In Arabic the text reads
+right to left, but the layout is not mirrored yet.
 
 ## Build from source
 
 Needs a JDK 17+ and the Android SDK command-line tools (build-tools 34+, platform android-34). No Gradle.
 
 ```sh
-./test.sh    # the time, PIN and schedule rules, on your computer
+./test.sh    # the time, PIN, schedule and guideline rules, on your computer
 ./build.sh   # CouchCurfew.apk, signed with couchcurfew.keystore (created on the first build)
 ```
+
+The drawings are SVGs in `art/`, rendered into `app/res/drawable-nodpi/` with `rsvg-convert`.
 
 Keep `couchcurfew.keystore`: updates must be signed with the same key. An APK you build yourself is signed with your
 own key, so it can't update one installed from a release (uninstall that one first).
