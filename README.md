@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <b>Daily time limits and a kids mode for Android TVs running <a href="https://github.com/simbasjungles/free-my-tv">Free My TV</a>.</b>
+  <b>Daily time limits, a kids mode and a usage dashboard for Android TV and Google TV.</b>
 </p>
 
 <p align="center">
@@ -33,13 +33,16 @@
 
 ## Why
 
-[Free My TV](https://github.com/simbasjungles/free-my-tv) replaces an Android TV's ad-filled home screen with a clean
-one. A family TV also needs something else: "YouTube, 60 minutes a day" while the kids are watching, and no limits
-when the grown-ups are. Free My TV's author chose to keep it a home screen and
-[suggested parental controls live as a project of their own](https://github.com/simbasjungles/free-my-tv/pull/153).
-This is that project.
+A family TV needs "YouTube, 60 minutes a day" while the kids are watching, and no limits when the grown-ups are.
+Android TV has no such thing built in, and the parental controls that exist want an account, a phone app or a cloud.
+Couch Curfew does it on the TV itself, with the remote.
 
-Couch Curfew is an **unofficial companion** to Free My TV, not part of it.
+It is a standalone app: it needs no particular home screen. It goes well with the projects that clean up an Android
+TV, such as [Free My TV](https://github.com/simbasjungles/free-my-tv) or
+[CleanMyTV](https://github.com/wingedpanther/cleanmytv): they take the ads and the bloat away, Couch Curfew adds the
+time limits. It started when Free My TV's author
+[suggested parental controls live as a project of their own](https://github.com/simbasjungles/free-my-tv/pull/153).
+It is not part of, or affiliated with, any of them, and has only been tested next to Free My TV.
 
 ## Features
 
@@ -87,9 +90,9 @@ The screenshots come from an emulator with sample data.
 ## Install
 
 You need an Android TV (8.0 or newer) on the same network as a computer with
-[adb](https://developer.android.com/tools/releases/platform-tools). Free My TV is recommended, not required.
+[adb](https://developer.android.com/tools/releases/platform-tools). No other app is required.
 
-1. On the TV, turn on **Developer options → Network debugging**. If you set up Free My TV, this is already on.
+1. On the TV, turn on **Developer options → Network debugging**. If you set up the TV with Free My TV or a similar tool, this is already on.
 2. Download `CouchCurfew.apk` from the [latest release](https://github.com/juanra/couch-curfew/releases/latest) and
    install it:
    ```sh
@@ -106,7 +109,7 @@ schedule and the restore after a reboot can run.
 
 ## How it works
 
-Like Free My TV, Couch Curfew talks to the TV's own ADB (network debugging, `127.0.0.1:5555`) to run a few fixed
+Couch Curfew talks to the TV's own ADB (network debugging, `127.0.0.1:5555`) to run a few fixed
 commands: `pm suspend` and `pm unsuspend` on the apps that must be blocked, `am force-stop` on an app that ran out of
 time, and turning its accessibility service on. The accessibility service only receives window changes (which app is
 in front); it never reads the screen. That same signal feeds the history: the time of the app in front goes to a
@@ -136,7 +139,8 @@ Couch Curfew is a speed bump for young kids, not a lock for a determined teenage
 
 - **HDMI devices** (a console, a streaming stick): they don't go through the TV's apps.
 - **A factory reset**, or turning off network debugging from Developer options before kids mode is on.
-- **Free My TV's own settings**, since Free My TV is the home screen. They don't switch Couch Curfew off.
+- **The home screen's own settings**, when the home screen is a replacement such as Free My TV. They don't switch
+  Couch Curfew off.
 - **Anything during the first seconds** after the TV boots, before the service starts.
 - **A glimpse of Settings**: it is sent home as it opens, not paused like a limited app. Pausing Settings would leave
   the TV stuck on Android's "app not available" dialog at every boot, since the placeholder home Android shows while
@@ -184,4 +188,4 @@ If Couch Curfew helps at home, consider sponsoring its development:
 
 ## License
 
-MIT. See [LICENSE](LICENSE). Not affiliated with Free My TV or its author.
+MIT. See [LICENSE](LICENSE). Not affiliated with Free My TV, CleanMyTV or their authors.
