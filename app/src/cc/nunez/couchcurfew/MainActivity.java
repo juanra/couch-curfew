@@ -51,6 +51,8 @@ public class MainActivity extends Activity {
     /** The dashboard's range, an index into Usage.RANGES. */
     private int range;
     private AlertDialog pinDialog;
+    /** Every dialog shown, so leaving the screen closes them: an open limit picker would outlive the lock. */
+    private final List<AlertDialog> dialogs = new ArrayList<>();
     /** What had focus before a refresh (a package or one of the tags above), to put it back after. */
     private String focusTag;
 
@@ -73,7 +75,8 @@ public class MainActivity extends Activity {
         unlocked = false;
         focusTag = null;
         root.removeAllViews();
-        if (pinDialog != null) pinDialog.dismiss();
+        for (AlertDialog dialog : dialogs) dialog.dismiss();
+        dialogs.clear();
     }
 
     /** Back from the settings goes to the dashboard, and locks them. */
@@ -604,6 +607,7 @@ public class MainActivity extends Activity {
 
     /** Shows a dialog whose view draws its own `panel()`: no stock background behind it, and no wider than it needs. */
     private void showPanel(AlertDialog dialog, int widthDp) {
+        dialogs.add(dialog);
         dialog.show();
         dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
         dialog.getWindow().setLayout(dp(widthDp), ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -670,7 +674,7 @@ public class MainActivity extends Activity {
             checked[d] = (old.days & (1 << d)) != 0;
             names[d] = java.time.DayOfWeek.of(d + 1).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault());
         }
-        new AlertDialog.Builder(this).setTitle(R.string.schedule_days)
+        dialogs.add(new AlertDialog.Builder(this).setTitle(R.string.schedule_days)
                 .setMultiChoiceItems(names, checked, (d, which, on) -> checked[which] = on)
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
                     int days = 0;
@@ -692,7 +696,7 @@ public class MainActivity extends Activity {
                     }));
                 })
                 .setNegativeButton(android.R.string.cancel, null)
-                .show();
+                .show());
     }
 
     private interface TimePicked { void picked(int minutes); }
