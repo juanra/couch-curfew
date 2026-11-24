@@ -21,6 +21,7 @@
 - [Features](#features)
 - [Screenshots](#screenshots)
 - [Install](#install)
+- [User guide](#user-guide)
 - [How it works](#how-it-works)
 - [The daily guideline](#the-daily-guideline)
 - [Limits](#limits-read-this)
@@ -109,6 +110,11 @@ You need an Android TV (8.0 or newer) on the same network as a computer with
 
 On TCL and other TVs that kill background apps, Setup also grants `APP_AUTO_START`, so the midnight reset, the
 schedule and the restore after a reboot can run.
+
+## User guide
+
+The [wiki](https://github.com/juanra/couch-curfew/wiki) explains how to use the app, screen by screen: kids mode and
+its schedule, the limits per app, the morning total, the dashboard and what to do when something goes wrong.
 
 ## How it works
 
