@@ -96,4 +96,12 @@
     <string name="source_aap">American Academy of Pediatrics</string>
     <string name="limit_note">Guideline for %1$s: %2$s a day in total, across all apps.</string>
     <string name="limit_note_others">Other limited apps already allow %s.</string>
+    <string name="morning_title">Mornings</string>
+    <string name="morning_total">Total time</string>
+    <string name="morning_end">Morning ends at</string>
+    <string name="morning_note">In the morning, every app with a limit shares this time. Each app\'s own limit starts fresh when the morning ends.</string>
+    <string name="morning_left">%d min left this morning</string>
+    <string name="morning_extra">+10 min this morning</string>
+    <string name="msg_morning_up">Morning TV time is up. You can watch again at %s.</string>
+    <string name="morning_today">Morning: %1$s of %2$s</string>
 </resources>

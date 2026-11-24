@@ -95,4 +95,12 @@
     <string name="source_aap">अमेरिकन एकेडमी ऑफ़ पीडियाट्रिक्स</string>
     <string name="limit_note">%1$s के लिए दिशानिर्देश: सभी ऐप मिलाकर रोज़ कुल %2$s।</string>
     <string name="limit_note_others">सीमा वाले बाकी ऐप पहले से %s की अनुमति देते हैं।</string>
+    <string name="morning_title">सुबह</string>
+    <string name="morning_total">कुल समय</string>
+    <string name="morning_end">सुबह खत्म होती है</string>
+    <string name="morning_note">सुबह में सीमा वाले सभी ऐप यह समय साझा करते हैं। सुबह खत्म होने पर हर ऐप की अपनी सीमा नए सिरे से शुरू होती है।</string>
+    <string name="morning_left">आज सुबह %d मिनट बचे हैं</string>
+    <string name="morning_extra">आज सुबह +10 मिनट</string>
+    <string name="msg_morning_up">सुबह का टीवी का समय पूरा हो गया। तुम %s बजे फिर देख सकते हो।</string>
+    <string name="morning_today">सुबह: %2$s में से %1$s</string>
 </resources>

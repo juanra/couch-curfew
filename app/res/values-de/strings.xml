@@ -97,4 +97,12 @@
     <string name="source_aap">American Academy of Pediatrics</string>
     <string name="limit_note">Richtwert für %1$s: insgesamt %2$s pro Tag, über alle Apps.</string>
     <string name="limit_note_others">Andere Apps mit Limit erlauben bereits %s.</string>
+    <string name="morning_title">Vormittage</string>
+    <string name="morning_total">Gesamtzeit</string>
+    <string name="morning_end">Vormittag endet um</string>
+    <string name="morning_note">Am Vormittag teilen sich alle Apps mit Limit diese Zeit. Das eigene Limit jeder App beginnt neu, wenn der Vormittag endet.</string>
+    <string name="morning_left">Noch %d Min. heute Vormittag</string>
+    <string name="morning_extra">+10 Min. heute Vormittag</string>
+    <string name="msg_morning_up">Die Fernsehzeit am Vormittag ist vorbei. Ab %s kannst du wieder schauen.</string>
+    <string name="morning_today">Vormittag: %1$s von %2$s</string>
 </resources>

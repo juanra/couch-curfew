@@ -314,6 +314,12 @@ public class MainActivity extends Activity {
         list.addView(listTitle(getString(R.string.guideline_title)));
         list.addView(row("guideline", null, getString(R.string.guideline_age), guidelineText(), MUTED, this::pickGuideline));
 
+        // The morning has its own pool, so what the youngest watches before the others are home doesn't use up the afternoon.
+        final Budget budget = guard.budget;
+        list.addView(listTitle(getString(R.string.morning_title) + "  ·  " + days(Budget.WEEKDAYS)));
+        list.addView(row("morning", null, getString(R.string.morning_total), morningText(today, kids), MUTED, this::pickMorning));
+        if (budget.partMinutes > 0) list.addView(row("morningEnd", null, getString(R.string.morning_end), clock(budget.partEnd), MUTED, this::pickMorningEnd));
+
         list.addView(listTitle(getString(R.string.apps_title)));
         PackageManager pm = getPackageManager();
         for (ResolveInfo app : tvApps()) {
@@ -371,6 +377,64 @@ public class MainActivity extends Activity {
         return others == 0 ? note : note + " " + getString(R.string.limit_note_others, duration(others * Budget.MINUTE));
     }
 
+    // MARK: - The morning's pool
+
+    /** The pools a morning can have, in minutes; none above the lowest daily guideline. */
+    private static final int[] MORNINGS = {10, 15, 20, 30, 45, 60};
+
+    /** "Off", "20 min" or, while the morning runs, "20 min · 6 min left this morning". */
+    private String morningText(String today, boolean counting) {
+        Budget budget = guard.budget;
+        if (budget.partMinutes <= 0) return getString(R.string.state_off);
+        String amount = getString(R.string.duration_m, budget.partMinutes);
+        if (!budget.inPart(today, Guard.minute())) return amount;
+        long leftMin = (budget.partRemainingMs(today) + Budget.MINUTE - 1) / Budget.MINUTE;
+        return amount + "  ·  " + (counting ? getString(R.string.morning_left, leftMin) : getString(R.string.counts_in_kids_mode));
+    }
+
+    /** The pool: more time for this morning while it runs, off, or a number of minutes. Turning it on asks for its end next. */
+    private void pickMorning() {
+        final String today = Guard.today();
+        final Budget budget = guard.budget;
+        final int n = budget.inPart(today, Guard.minute()) ? 1 : 0;
+        String[] items = new String[MORNINGS.length + 1 + n];
+        if (n == 1) items[0] = getString(R.string.morning_extra);
+        items[n] = getString(R.string.state_off);
+        int checked = budget.partMinutes <= 0 ? n : -1;
+        for (int i = 0; i < MORNINGS.length; i++) {
+            items[i + 1 + n] = getString(R.string.duration_m, MORNINGS[i]);
+            if (budget.partMinutes == MORNINGS[i]) checked = i + 1 + n;
+        }
+        String guideline = limitNote(null, 0);
+        String note = getString(R.string.morning_note) + (guideline == null ? "" : " " + guideline);
+        choose(getString(R.string.morning_title) + "  ·  " + days(Budget.WEEKDAYS), note, items, null, checked, checked, picked -> {
+            int which = picked - n;
+            boolean wasOff = budget.partMinutes <= 0;
+            if (which < 0) budget.grantPartExtra(10, today);
+            else budget.setPart(which == 0 ? 0 : MORNINGS[which - 1], today, Guard.minute());
+            morningChanged();
+            if (wasOff && which > 0) pickMorningEnd();
+        });
+    }
+
+    /** Every half hour from 09:00 to 15:00: later than that is no longer a morning. */
+    private void pickMorningEnd() {
+        final int first = 9 * 60;
+        String[] slots = new String[13];
+        for (int i = 0; i < slots.length; i++) slots[i] = clock(first + i * 30);
+        int current = Math.max(0, Math.min(slots.length - 1, (guard.budget.partEnd - first) / 30));
+        choose(getString(R.string.morning_end), slots, current, which -> {
+            guard.budget.partEnd = first + which * 30;
+            morningChanged();
+        });
+    }
+
+    /** The end of the morning is one of the moments the alarm wakes up for. */
+    private void morningChanged() {
+        guard.scheduleAlarm();
+        changed();
+    }
+
     /** A section title over rows: in line with their text, and closer to its own rows than to the ones above. */
     private TextView listTitle(String s) {
         TextView t = sectionTitle(s);
@@ -387,12 +451,13 @@ public class MainActivity extends Activity {
         if (limit == null) return days + getString(R.string.no_limit);
         if (limit == 0 && extra(pkg) == 0) return days + getString(R.string.not_allowed);
         long leftMin = (guard.budget.remainingMs(pkg, today) + Budget.MINUTE - 1) / Budget.MINUTE;
-        String state = !counting ? getString(R.string.counts_in_kids_mode)
+        // In the morning the pool decides, and its countdown is on the morning's row: here, only the app's own limit.
+        String state = guard.budget.pooled(pkg, today, Guard.minute()) ? null : !counting ? getString(R.string.counts_in_kids_mode)
                 : leftMin == 0 ? getString(R.string.out_today) : getString(R.string.left_today, leftMin);
         // "Mon–Fri 30 min" already says it is by day; the longer "30 min a day" would push the app's name out of the row.
         String amount = limit == 0 ? getString(R.string.not_allowed) : days.isEmpty() ? getString(R.string.minutes, limit)
                 : days(Budget.weekday(today) < 5 ? Budget.WEEKDAYS : Budget.WEEKEND) + " " + getString(R.string.duration_m, limit);
-        return (limit == 0 ? days : "") + amount + "  ·  " + state;
+        return (limit == 0 ? days : "") + amount + (state == null ? "" : "  ·  " + state);
     }
 
     /** One line of the list: an optional icon, the name on the left and its value on the right. */
@@ -483,7 +548,8 @@ public class MainActivity extends Activity {
     private void pickLimit(final String pkg, int focus) {
         final String today = Guard.today();
         final Budget budget = guard.budget;
-        final int extra = budget.limit(pkg, today) != null ? 1 : 0;
+        // In the morning "+30 min today" would add to the afternoon unseen; the morning's row has its own extra.
+        final int extra = budget.limit(pkg, today) != null && !budget.pooled(pkg, today, Guard.minute()) ? 1 : 0;
         if (budget.split(pkg) || focus >= 0) {
             String[] items = new String[3 + extra], values = new String[3 + extra];
             if (extra == 1) items[0] = getString(R.string.extra_today);
@@ -649,7 +715,7 @@ public class MainActivity extends Activity {
         return days + "  ·  " + clock(w.start) + "–" + clock(w.end);
     }
 
-    private static String clock(int minutes) {
+    static String clock(int minutes) {
         return String.format(java.util.Locale.ROOT, "%02d:%02d", minutes / 60, minutes % 60);
     }
 

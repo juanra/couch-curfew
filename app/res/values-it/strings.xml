@@ -97,4 +97,12 @@
     <string name="source_aap">American Academy of Pediatrics</string>
     <string name="limit_note">Riferimento per %1$s: %2$s al giorno in totale, tra tutte le app.</string>
     <string name="limit_note_others">Le altre app con limite consentono già %s.</string>
+    <string name="morning_title">Mattine</string>
+    <string name="morning_total">Tempo totale</string>
+    <string name="morning_end">La mattina finisce alle</string>
+    <string name="morning_note">Di mattina tutte le app con un limite condividono questo tempo. Il limite di ogni app riparte da capo quando la mattina finisce.</string>
+    <string name="morning_left">Restano %d min stamattina</string>
+    <string name="morning_extra">+10 min stamattina</string>
+    <string name="msg_morning_up">Il tempo di TV della mattina è finito. Puoi guardare di nuovo alle %s.</string>
+    <string name="morning_today">Mattina: %1$s di %2$s</string>
 </resources>

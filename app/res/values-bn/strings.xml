@@ -95,4 +95,12 @@
     <string name="source_aap">আমেরিকান একাডেমি অব পেডিয়াট্রিক্স</string>
     <string name="limit_note">%1$s-এর নির্দেশিকা: সব অ্যাপ মিলিয়ে দিনে মোট %2$s।</string>
     <string name="limit_note_others">সীমা থাকা অন্য অ্যাপগুলো ইতিমধ্যে %s অনুমতি দেয়।</string>
+    <string name="morning_title">সকাল</string>
+    <string name="morning_total">মোট সময়</string>
+    <string name="morning_end">সকাল শেষ হয়</string>
+    <string name="morning_note">সকালে সীমা থাকা সব অ্যাপ এই সময়টা ভাগ করে নেয়। সকাল শেষ হলে প্রতিটি অ্যাপের নিজের সীমা নতুন করে শুরু হয়।</string>
+    <string name="morning_left">আজ সকালে %d মিনিট বাকি</string>
+    <string name="morning_extra">আজ সকালে +১০ মিনিট</string>
+    <string name="msg_morning_up">সকালের টিভির সময় শেষ। %s-এ আবার দেখতে পারবে।</string>
+    <string name="morning_today">সকাল: %2$s-এর মধ্যে %1$s</string>
 </resources>

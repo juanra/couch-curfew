@@ -95,4 +95,12 @@
     <string name="source_aap">الأكاديمية الأمريكية لطب الأطفال</string>
     <string name="limit_note">الإرشاد لفئة %1$s: %2$s في اليوم إجمالًا لكل التطبيقات.</string>
     <string name="limit_note_others">التطبيقات الأخرى ذات الحدود تسمح بالفعل بـ %s.</string>
+    <string name="morning_title">الصباح</string>
+    <string name="morning_total">الوقت الإجمالي</string>
+    <string name="morning_end">ينتهي الصباح عند</string>
+    <string name="morning_note">في الصباح، تتشارك كل التطبيقات التي لها حد هذا الوقت. يبدأ حد كل تطبيق كاملًا عند انتهاء الصباح.</string>
+    <string name="morning_left">بقيت %d دقيقة هذا الصباح</string>
+    <string name="morning_extra">+10 دقائق هذا الصباح</string>
+    <string name="msg_morning_up">انتهى وقت التلفاز الصباحي. يمكنك المشاهدة مجددًا عند %s.</string>
+    <string name="morning_today">الصباح: %1$s من %2$s</string>
 </resources>

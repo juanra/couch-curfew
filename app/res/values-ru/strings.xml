@@ -97,4 +97,12 @@
     <string name="source_aap">Американская академия педиатрии</string>
     <string name="limit_note">Ориентир для возраста %1$s: всего %2$s в день на все приложения.</string>
     <string name="limit_note_others">Другие приложения с лимитом уже разрешают %s.</string>
+    <string name="morning_title">Утро</string>
+    <string name="morning_total">Всего времени</string>
+    <string name="morning_end">Утро заканчивается в</string>
+    <string name="morning_note">Утром все приложения с лимитом делят это время. Когда утро заканчивается, у каждого приложения снова весь его лимит.</string>
+    <string name="morning_left">Этим утром осталось %d мин</string>
+    <string name="morning_extra">+10 мин этим утром</string>
+    <string name="msg_morning_up">Утреннее время у телевизора закончилось. Смотреть снова можно в %s.</string>
+    <string name="morning_today">Утро: %1$s из %2$s</string>
 </resources>

@@ -77,6 +77,36 @@ public class RulesTest {
         int[] levels = Usage.levels(kidsDays, java.time.LocalDate.parse("2026-10-23"), java.time.LocalDate.parse(d2), 120);
         check(levels[Usage.UNDER] == 1 && levels[Usage.CLOSE] == 1 && levels[Usage.OVER] == 1, "a day without time is under; one close, one over");
 
+        // The morning: one pool for every app with a limit, on weekdays, that leaves the apps' own limits alone.
+        Budget p = new Budget();
+        java.util.Set<String> none = new java.util.HashSet<String>();
+        p.setLimit("youtube", 30);
+        p.setLimit("netflix", 30);
+        p.setLimit("tiktok", 0);
+        p.addUsage("youtube", 5 * m, monday, 9 * 60);
+        check(p.usedMs("youtube", monday) == 5 * m && !p.inPart(monday, 9 * 60), "with the morning off, time goes to the app");
+        p.setPart(20, monday, 9 * 60);
+        check(p.partUsedMs(monday) == 5 * m && p.usedMs("youtube", monday) == 0, "turned on mid-morning, today's time moves into the pool");
+        p.addUsage("youtube", 10 * m, monday, 10 * 60);
+        p.addUsage("spotify", 10 * m, monday, 10 * 60);
+        check(p.partUsedMs(monday) == 15 * m && p.usedMs("youtube", monday) == 0, "morning time counts against the pool, not the app; an app without a limit counts nowhere");
+        check(p.remainingMs("netflix", monday, 10 * 60) == 5 * m && p.remainingMs("netflix", monday) == 30 * m, "every limited app shares what the pool has left");
+        p.addUsage("netflix", 5 * m, monday, 11 * 60);
+        java.util.Set<String> morning = p.blocked(true, none, monday, 11 * 60);
+        check(morning.contains("youtube") && morning.contains("netflix") && morning.contains("tiktok"), "an empty pool blocks every limited app");
+        check(p.remainingMs("spotify", monday, 11 * 60) == Long.MAX_VALUE, "an app without a limit stays free in the morning");
+        java.util.Set<String> afternoon = p.blocked(true, none, monday, 13 * 60);
+        check(!afternoon.contains("youtube") && afternoon.contains("tiktok") && p.remainingMs("youtube", monday, 13 * 60) == 30 * m,
+                "when the morning ends each app has its whole limit; a blocked app stays blocked");
+        p.grantPartExtra(10, monday);
+        check(p.remainingMs("youtube", monday, 11 * 60) == 10 * m && p.remainingMs("youtube", monday) == 30 * m, "extra morning time goes to the pool only");
+        p.addUsage("youtube", 30 * m, monday, 14 * 60);
+        check(p.exhausted("youtube", monday, 14 * 60) && p.partUsedMs(monday) == 20 * m, "afternoon time counts against the app, not the pool");
+        check(!p.inPart(d1, 9 * 60) && p.remainingMs("youtube", d1, 9 * 60) == 30 * m, "no pool on the weekend");
+        check(p.partUsedMs("2026-01-06") == 0 && p.partRemainingMs("2026-01-06") == 20 * m, "a new day refills the pool and drops its extra");
+        p.setPart(0, "2026-01-06", 9 * 60);
+        check(!p.inPart("2026-01-06", 9 * 60), "0 minutes turns the morning off");
+
         Budget z = new Budget();
         z.setLimit("tiktok", 0);
         check(z.exhausted("tiktok", d1), "a limit of 0 is out of time from the start");

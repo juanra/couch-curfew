@@ -63,6 +63,9 @@ It is not part of, or affiliated with, any of them, and has only been tested nex
 - **A daily limit per app**: 15 minutes to 3 hours, no limit, or **not allowed** in kids mode. Time resets at midnight.
 - **Different limits on weekends.** Each app can have one limit for Monday to Friday and another for Saturday and
   Sunday: "YouTube, 15 minutes on school days, an hour on weekends", or not allowed during the week at all.
+- **A morning total for school days.** From Monday to Friday, until a time the parent picks (13:00 by default), every
+  app with a limit can share one total of 10 to 60 minutes. What the youngest watches while the others are at school
+  comes out of that total, and each app starts the afternoon with its whole limit. Off by default.
 - **When time is up** the app closes, the TV goes home and the app stays paused until midnight. One minute before, a
   warning shows. Opening a paused app explains why, and tells the kid to ask their parents.
 - **+30 minutes today** for one app, without changing its limit.

@@ -29,6 +29,16 @@ final class Store {
         loadLimits(b);
         b.usedMs.putAll(longs(p.getString("used", "{}")));
         for (Map.Entry<String, Long> e : longs(p.getString("extra", "{}")).entrySet()) b.extraMin.put(e.getKey(), e.getValue().intValue());
+        try {
+            JSONObject part = new JSONObject(p.getString("part", "{}"));
+            b.partDays = part.optInt("days", b.partDays);
+            b.partEnd = part.optInt("end", b.partEnd);
+            b.partMinutes = part.optInt("minutes", 0);
+        } catch (JSONException e) {
+            android.util.Log.w(Guard.TAG, "stored morning unreadable, starting with it off: " + e.getMessage());
+        }
+        b.partUsedMs = p.getLong("partUsed", 0);
+        b.partExtraMin = p.getInt("partExtra", 0);
         return b;
     }
 
@@ -55,14 +65,16 @@ final class Store {
     }
 
     void saveBudget(Budget b) {
-        JSONObject limits = new JSONObject();
+        JSONObject limits = new JSONObject(), part = new JSONObject();
         try {
             for (Map.Entry<String, int[]> e : b.limits.entrySet()) limits.put(e.getKey(), new JSONArray(e.getValue()));
+            part.put("days", b.partDays).put("end", b.partEnd).put("minutes", b.partMinutes);
         } catch (JSONException e) {
             throw new IllegalStateException(e); // a package name and seven ints always fit in JSON
         }
         p.edit().putString("day", b.day).putString("limitsByDay", limits.toString())
                 .putString("used", new JSONObject(b.usedMs).toString()).putString("extra", new JSONObject(b.extraMin).toString())
+                .putString("part", part.toString()).putLong("partUsed", b.partUsedMs).putInt("partExtra", b.partExtraMin)
                 .apply();
     }
 

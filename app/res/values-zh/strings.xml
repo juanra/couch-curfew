@@ -95,4 +95,12 @@
     <string name="source_aap">美国儿科学会</string>
     <string name="limit_note">%1$s的参考值：所有应用合计每天 %2$s。</string>
     <string name="limit_note_others">其他有限制的应用已允许 %s。</string>
+    <string name="morning_title">上午</string>
+    <string name="morning_total">合计时间</string>
+    <string name="morning_end">上午结束时间</string>
+    <string name="morning_note">上午，所有设了限制的应用共用这段时间。上午结束后，每个应用各自的限制重新开始。</string>
+    <string name="morning_left">今天上午还剩 %d 分钟</string>
+    <string name="morning_extra">今天上午加 10 分钟</string>
+    <string name="msg_morning_up">上午的电视时间用完了。%s 之后可以再看。</string>
+    <string name="morning_today">上午：%1$s / %2$s</string>
 </resources>

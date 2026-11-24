@@ -68,12 +68,23 @@ final class Guard {
     /** The screensaver is on: the app behind it is not being watched, so the history skips it. The limits still count. */
     private boolean dreaming;
     private boolean adbErrorShown;
+    /**
+     * The morning's pool was what counted at the last tick; when that changes, what is blocked changes with it. Null
+     * until the first tick, which always reconciles: the process may have been restarted across the end of the morning.
+     */
+    private Boolean inPart;
 
     private Guard(Context app) {
         this.app = app;
         store = new Store(app);
         budget = store.loadBudget();
         history = new History(app);
+    }
+
+    /** The minute of the day on the TV's clock. */
+    static int minute() {
+        java.time.LocalTime t = java.time.LocalTime.now(ZoneId.systemDefault());
+        return t.getHour() * 60 + t.getMinute();
     }
 
     static String today() {
@@ -116,12 +127,20 @@ final class Guard {
     /** Called every few seconds by the service, so time is counted (and the limit hit) while an app stays in front. */
     void tick() {
         commit();
+        // The alarm for the end of the morning can be a minute late; an open app is caught here.
+        boolean now = budget.inPart(today(), minute());
+        if (inPart == null || now != inPart) {
+            inPart = now;
+            warned.clear();
+            reconcile(null);
+        }
     }
 
     private void commit() {
         long now = SystemClock.elapsedRealtime(), ms = now - since;
         since = now;
         String pkg = foreground, today = today();
+        int minute = minute();
         if (!screenOn || service == null || pkg.isEmpty()) return;
         boolean kids = store.kidsMode();
         if (!dreaming) {
@@ -132,13 +151,13 @@ final class Guard {
             }
         }
         if (!kids || budget.limit(pkg, today) == null) return;
-        budget.addUsage(pkg, ms, today);
+        budget.addUsage(pkg, ms, today, minute);
         store.saveBudget(budget);
-        long left = budget.remainingMs(pkg, today);
+        long left = budget.remainingMs(pkg, today, minute);
         if (left == 0) {
             kick(pkg);
             reconcile(null);
-        } else if (left <= Budget.MINUTE && warned.add(today + "/" + pkg)) {
+        } else if (left <= Budget.MINUTE && warned.add(today + "/" + (budget.pooled(pkg, today, minute) ? "morning" : pkg))) {
             toast(app.getString(R.string.one_minute_left, label(pkg)));
         }
     }
@@ -155,7 +174,7 @@ final class Guard {
     }
 
     Set<String> blockedNow() {
-        Set<String> blocked = budget.blocked(store.kidsMode(), locked(), today());
+        Set<String> blocked = budget.blocked(store.kidsMode(), locked(), today(), minute());
         store.saveBudget(budget); // a new day may have cleared the usage
         return blocked;
     }
@@ -179,7 +198,12 @@ final class Guard {
 
     /** What a kid sees on a blocked app: in the toast, and in Android's dialog when they open a suspended app. */
     private String message(String pkg) {
-        Integer limit = budget.limit(pkg, today());
+        String today = today();
+        int minute = minute();
+        if (budget.pooled(pkg, today, minute) && budget.exhausted(pkg, today, minute)) {
+            return app.getString(R.string.msg_morning_up, MainActivity.clock(budget.partEnd));
+        }
+        Integer limit = budget.limit(pkg, today);
         int id = limit == null ? R.string.msg_parents_only : limit == 0 ? R.string.msg_not_allowed : R.string.msg_time_up;
         return app.getString(id);
     }
@@ -306,6 +330,11 @@ final class Guard {
         LocalDateTime next = now.toLocalDate().plusDays(1).atStartOfDay();
         LocalDateTime boundary = Schedule.nextBoundary(store.windows(), now);
         if (boundary != null && boundary.isBefore(next)) next = boundary;
+        // The end of the morning gives the apps back, so it is a boundary too.
+        if (budget.inPart(today(), minute())) {
+            LocalDateTime end = now.toLocalDate().atStartOfDay().plusMinutes(budget.partEnd);
+            if (end.isBefore(next)) next = end;
+        }
         long at = next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         Intent i = new Intent(ACTION_ALARM).setClass(app, Receiver.class);
         PendingIntent pi = PendingIntent.getBroadcast(app, 0, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
