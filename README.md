@@ -66,15 +66,21 @@ It is not part of, or affiliated with, any of them, and has only been tested nex
 - **A schedule for kids mode.** Windows of days and hours ("Mon–Fri 14:00–20:00", "Sat–Sun 08:00–21:00", even
   "20:00–07:00" across midnight) turn it on and off by themselves. A parent can still switch it by hand; that holds
   until the schedule's next start or end.
-- **A daily limit per app**: 15 minutes to 3 hours, no limit, or **not allowed** in kids mode. Time resets at midnight.
-- **Different limits on weekends.** Each app can have one limit for Monday to Friday and another for Saturday and
-  Sunday: "YouTube, 15 minutes on school days, an hour on weekends", or not allowed during the week at all.
-- **A morning total for school days.** From Monday to Friday, until a time the parent picks (13:00 by default), every
-  app with a limit can share one total of 10 to 60 minutes. What the youngest watches while the others are at school
-  comes out of that total, and each app starts the afternoon with its whole limit. Off by default.
-- **When time is up** the app closes, the TV goes home and the app stays paused until midnight. One minute before, a
-  warning shows. Opening a paused app explains why, and tells the kid to ask their parents.
-- **+30 minutes today** for one app, without changing its limit.
+- **Three kinds of limit, each one on or off by itself.** A **daily total** for every app together ("one hour of TV,
+  on whatever they like"), a **daily limit per app** (15 minutes to 3 hours, or **not allowed** in kids mode) and
+  **time frames**. All of them count at the same time and the strictest one wins. Time resets at midnight.
+- **Time frames, for a TV that several kids share.** A TV has no profile per kid, so a time frame stands in for "who
+  is watching": name it ("Emma", "Morning"), pick its days and hours, and give it a total and limits per app of its
+  own ("Netflix, 30 minutes in the morning"). Each frame keeps its own count, so what the youngest watches in the
+  morning doesn't spend what the others have in the afternoon. Up to four, never overlapping.
+- **Different limits on weekends.** The daily total and each app can have one limit for Monday to Friday and another
+  for Saturday and Sunday: "YouTube, 15 minutes on school days, an hour on weekends".
+- **Always allowed apps.** Mark the apps that should never count or be blocked, such as music or a school app.
+  Everything else on the TV counts toward the totals, including apps installed later.
+- **When time is up** the app closes, the TV goes home and the app stays paused until midnight, or until the time
+  frame ends. One minute before, a warning shows. Opening a paused app explains why, and when it is back.
+- **More time today**, behind the PIN: 15, 30 or 60 minutes for one app, added to whatever limit is holding it back,
+  without changing the limit.
 - **Settings and the Play Store are locked in kids mode**, so the limits can't be switched off from the TV's menus:
   opening either one sends the TV home.
 - **Private by design.** Everything is set up on the TV, behind the PIN, and the usage history stays in the app's own
@@ -92,7 +98,11 @@ The last 7 days against the guideline, with the day over it in red:
 
 | Limits and settings | A limit for weekdays and another for weekends |
 |---|---|
-| ![Kids mode, the schedule, the guideline and each app's limit](docs/images/settings.png) | ![YouTube with 15 minutes Monday to Friday and 60 on weekends](docs/images/limit-by-day.png) |
+| ![Kids mode, more time, the schedule, the limits and the rest of the settings](docs/images/settings.png) | ![YouTube with 15 minutes Monday to Friday and 60 on weekends](docs/images/limit-by-day.png) |
+
+| The three kinds of limit | A time frame |
+|---|---|
+| ![The daily total, two time frames and the limits per app](docs/images/limits.png) | ![A time frame with its hours, its total and a limit for one app](docs/images/frame.png) |
 
 The screenshots come from an emulator with sample data.
 
@@ -110,8 +120,8 @@ You need an Android TV (8.0 or newer) on the same network as a computer with
    ```
 3. Open **Couch Curfew** from the TV's apps. It opens on the dashboard, which needs no PIN.
 4. Pick the gear (**Limits and settings**), create the parent PIN, then **Setup**. The TV asks once to allow USB debugging for Couch Curfew: check **Always allow** and accept.
-5. Pick a limit for each app you want to limit, then turn **Kids mode** on, or add a **Schedule** window.
-6. Optional: pick **Youngest child's age** to color the dashboard against the daily guideline.
+5. Under **Limits**, set a daily total, a limit for the apps you want to limit, or a time frame. Then turn **Kids mode** on, or add a **Schedule** window.
+6. Optional: pick the youngest child's age under **Daily guideline** to color the dashboard against it.
 
 On TCL and other TVs that kill background apps, Setup also grants `APP_AUTO_START`, so the midnight reset, the
 schedule and the restore after a reboot can run.
@@ -119,7 +129,7 @@ schedule and the restore after a reboot can run.
 ## User guide
 
 The [wiki](https://github.com/juanra/couch-curfew/wiki) explains how to use the app, screen by screen: kids mode and
-its schedule, the limits per app, the morning total, the dashboard and what to do when something goes wrong.
+its schedule, the three kinds of limit, time frames, the dashboard and what to do when something goes wrong.
 
 ## How it works
 
@@ -127,14 +137,14 @@ Couch Curfew talks to the TV's own ADB (network debugging, `127.0.0.1:5555`) to 
 commands: `pm suspend` and `pm unsuspend` on the apps that must be blocked, `am force-stop` on an app that ran out of
 time, and turning its accessibility service on. The accessibility service only receives window changes (which app is
 in front); it never reads the screen. That same signal feeds the history: the time of the app in front goes to a
-local SQLite table, one row per day, hour and app, and rows older than a year are dropped. One alarm wakes it at midnight and at each start or end of a schedule window.
+local SQLite table, one row per day, hour and app, and rows older than a year are dropped. One alarm wakes it at midnight and at each start or end of a schedule window or a time frame.
 
 The ADB client is adapted from Free My TV's, under its MIT license.
 
 ## The daily guideline
 
-The guideline is a reference on the dashboard, not a lock: nothing is blocked when a day goes over it. The limits per
-app do the blocking.
+The guideline is a reference on the dashboard, not a lock: nothing is blocked when a day goes over it. The limits do
+the blocking.
 
 | Youngest child | Guideline | Source |
 |---|---|---|
@@ -151,7 +161,9 @@ on the dashboard follow that.
 
 Couch Curfew is a speed bump for young kids, not a lock for a determined teenager. It can't stop:
 
-- **HDMI devices** (a console, a streaming stick): they don't go through the TV's apps.
+- **HDMI devices** (a console, a streaming stick) and live TV inputs: they don't go through the TV's apps, so no
+  limit or total counts them.
+- **Who is watching.** A time frame is a part of the day, not a kid: the TV can't tell them apart.
 - **A factory reset**, or turning off network debugging from Developer options before kids mode is on.
 - **The home screen's own settings**, when the home screen is a replacement such as Free My TV. They don't switch
   Couch Curfew off.
@@ -189,7 +201,6 @@ own key, so it can't update one installed from a release (uninstall that one fir
 ## Roadmap
 
 - Bedtime: every app locked during a window.
-- A combined daily total across apps.
 - HDMI inputs.
 
 ## Support
