@@ -69,10 +69,13 @@ final class Guard {
     private boolean dreaming;
     private boolean adbErrorShown;
     /**
-     * The morning's pool was what counted at the last tick; when that changes, what is blocked changes with it. Null
-     * until the first tick, which always reconciles: the process may have been restarted across the end of the morning.
+     * The time frame that counted at the last tick; when that changes, what is blocked changes with it. The first tick
+     * always reconciles: the process may have been restarted across the end of a frame.
      */
-    private Boolean inPart;
+    private Budget.Frame frame;
+    private boolean ticked;
+    /** The apps that count, as of the last look at what is blocked. */
+    private Set<String> counted;
 
     private Guard(Context app) {
         this.app = app;
@@ -109,8 +112,9 @@ final class Guard {
         if (pkg.equals(foreground)) return;
         commit();
         foreground = pkg;
-        if (budget.limit(pkg, today()) != null) Log.i(TAG, "in front: " + pkg + (store.kidsMode() ? ", counting" : ", kids mode off"));
-        if (blockedNow().contains(pkg)) kick(pkg);
+        Set<String> blocked = blockedNow();
+        if (counted.contains(pkg)) Log.i(TAG, "in front: " + pkg + (store.kidsMode() ? ", counting" : ", kids mode off"));
+        if (blocked.contains(pkg)) kick(pkg);
     }
 
     void onScreen(boolean on) {
@@ -127,10 +131,11 @@ final class Guard {
     /** Called every few seconds by the service, so time is counted (and the limit hit) while an app stays in front. */
     void tick() {
         commit();
-        // The alarm for the end of the morning can be a minute late; an open app is caught here.
-        boolean now = budget.inPart(today(), minute());
-        if (inPart == null || now != inPart) {
-            inPart = now;
+        // The alarm for a frame's start or end can be a minute late; an open app is caught here.
+        Budget.Frame now = budget.frameAt(today(), minute());
+        if (!ticked || now != frame) {
+            ticked = true;
+            frame = now;
             warned.clear();
             reconcile(null);
         }
@@ -150,15 +155,20 @@ final class Guard {
                 Log.w(TAG, "history not written: " + e.getMessage()); // the limits must hold even if the history can't be saved
             }
         }
-        if (!kids || budget.limit(pkg, today) == null) return;
+        if (!kids || !counted().contains(pkg)) return;
         budget.addUsage(pkg, ms, today, minute);
         store.saveBudget(budget);
         long left = budget.remainingMs(pkg, today, minute);
         if (left == 0) {
             kick(pkg);
             reconcile(null);
-        } else if (left <= Budget.MINUTE && warned.add(today + "/" + (budget.pooled(pkg, today, minute) ? "morning" : pkg))) {
-            toast(app.getString(R.string.one_minute_left, label(pkg)));
+        } else if (left <= Budget.MINUTE) {
+            // One warning per limit: a total warns once, whichever app is in front.
+            int which = budget.strictest(pkg, today, minute);
+            boolean own = which == Budget.APP || which == Budget.FRAME_APP;
+            if (warned.add(today + "/" + which + (own ? pkg : ""))) {
+                toast(own ? app.getString(R.string.one_minute_left, label(pkg)) : app.getString(R.string.one_minute_left_total));
+            }
         }
     }
 
@@ -173,8 +183,34 @@ final class Guard {
         return out;
     }
 
+    /**
+     * The apps on the TV's launcher, as the settings list them: not this app, the home screen (limiting it would send
+     * home to home) nor the ones kids mode locks anyway.
+     */
+    List<ResolveInfo> tvApps() {
+        PackageManager pm = app.getPackageManager();
+        ResolveInfo home = pm.resolveActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0);
+        Set<String> skip = locked();
+        skip.add(PKG);
+        if (home != null && home.activityInfo != null) skip.add(home.activityInfo.packageName);
+        List<ResolveInfo> apps = new ArrayList<>();
+        Intent tv = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
+        for (ResolveInfo r : pm.queryIntentActivities(tv, 0)) if (skip.add(r.activityInfo.packageName)) apps.add(r);
+        return apps;
+    }
+
+    /** The apps whose time counts: with a total, an app needs no limit of its own to count or to run out. */
+    private Set<String> counted() {
+        if (counted == null) {
+            counted = new HashSet<>();
+            for (ResolveInfo r : tvApps()) counted.add(r.activityInfo.packageName);
+        }
+        return counted;
+    }
+
     Set<String> blockedNow() {
-        Set<String> blocked = budget.blocked(store.kidsMode(), locked(), today(), minute());
+        counted = null; // an app may have been installed or removed
+        Set<String> blocked = budget.blocked(store.kidsMode(), locked(), counted(), today(), minute());
         store.saveBudget(budget); // a new day may have cleared the usage
         return blocked;
     }
@@ -184,7 +220,7 @@ final class Guard {
         Log.i(TAG, "blocked: " + pkg);
         if (service != null) service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME);
         toast(message(pkg));
-        boolean outOfTime = budget.limits.containsKey(pkg);
+        boolean outOfTime = !locked().contains(pkg);
         if (outOfTime && SAFE_PACKAGE.matcher(pkg).matches()) {
             adbThread.execute(() -> {
                 try (Adb adb = Adb.connect(app, 15_000, null)) {
@@ -198,14 +234,16 @@ final class Guard {
 
     /** What a kid sees on a blocked app: in the toast, and in Android's dialog when they open a suspended app. */
     private String message(String pkg) {
+        if (locked().contains(pkg)) return app.getString(R.string.msg_parents_only);
         String today = today();
         int minute = minute();
-        if (budget.pooled(pkg, today, minute) && budget.exhausted(pkg, today, minute)) {
-            return app.getString(R.string.msg_morning_up, MainActivity.clock(budget.partEnd));
+        Budget.Frame now = budget.frameAt(today, minute);
+        switch (budget.strictest(pkg, today, minute)) {
+            case Budget.DAY_TOTAL: return app.getString(R.string.msg_total_up);
+            case Budget.FRAME_TOTAL: return app.getString(R.string.msg_frame_up, MainActivity.clock(now.end));
+            case Budget.FRAME_APP: return app.getString(R.string.msg_frame_app_up, MainActivity.clock(now.end));
+            default: return app.getString(budget.limitOn(pkg, Budget.weekday(today)) == 0 ? R.string.msg_not_allowed : R.string.msg_time_up);
         }
-        Integer limit = budget.limit(pkg, today);
-        int id = limit == null ? R.string.msg_parents_only : limit == 0 ? R.string.msg_not_allowed : R.string.msg_time_up;
-        return app.getString(id);
     }
 
     /** Suspends what must be blocked and resumes what this app suspended and no longer must be. `done` runs after, on the ADB thread. */
@@ -323,17 +361,18 @@ final class Guard {
         adb.shell("settings put secure accessibility_enabled 1");
     }
 
-    // MARK: - Alarm: midnight (a new day) and the schedule's next start or end, whichever comes first
+    // MARK: - Alarm: midnight (a new day), the schedule's next start or end, or a time frame's, whichever comes first
 
     void scheduleAlarm() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime next = now.toLocalDate().plusDays(1).atStartOfDay();
         LocalDateTime boundary = Schedule.nextBoundary(store.windows(), now);
         if (boundary != null && boundary.isBefore(next)) next = boundary;
-        // The end of the morning gives the apps back, so it is a boundary too.
-        if (budget.inPart(today(), minute())) {
-            LocalDateTime end = now.toLocalDate().atStartOfDay().plusMinutes(budget.partEnd);
-            if (end.isBefore(next)) next = end;
+        // A time frame starting or ending changes what is blocked, so it is a boundary too.
+        int change = budget.nextFrameChange(today(), minute());
+        if (change >= 0 && change < 24 * 60) {
+            LocalDateTime at = now.toLocalDate().atStartOfDay().plusMinutes(change);
+            if (at.isBefore(next)) next = at;
         }
         long at = next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         Intent i = new Intent(ACTION_ALARM).setClass(app, Receiver.class);

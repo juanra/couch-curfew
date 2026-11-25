@@ -18,12 +18,69 @@ import java.util.Set;
 /** Everything the app remembers, in its private SharedPreferences. */
 final class Store {
     private final SharedPreferences p;
+    /** The name the morning of 0.5.0 gets as a time frame, in the TV's language. */
+    private final String morningName;
 
     Store(Context c) {
         p = c.getSharedPreferences("state", Context.MODE_PRIVATE);
+        morningName = c.getString(R.string.frame_morning);
     }
 
+    /**
+     * The rules and today's count. Since 0.6.0 they live under "rules" and "today", with "schema" 2. The keys of 0.5.0
+     * ("limitsByDay", "used", "extra", "part"...) are read once and never written again, so an older version installed
+     * over this one still finds its own data: that is the rollback.
+     */
     Budget loadBudget() {
+        if (p.getInt("schema", 1) < 2) {
+            Budget b = migrate();
+            saveBudget(b);
+            return b;
+        }
+        Budget b = new Budget();
+        try {
+            JSONObject rules = new JSONObject(p.getString("rules", "{}")), today = new JSONObject(p.getString("today", "{}"));
+            JSONObject apps = rules.optJSONObject("apps");
+            if (apps != null) for (Iterator<String> it = apps.keys(); it.hasNext(); ) {
+                String pkg = it.next();
+                JSONArray week = apps.getJSONArray(pkg);
+                for (int d = 0; d < 7; d++) b.setLimit(pkg, 1 << d, week.getInt(d));
+            }
+            b.appsOn = rules.optBoolean("appsOn", true);
+            JSONArray total = rules.optJSONArray("dayTotal");
+            if (total != null) for (int d = 0; d < 7; d++) b.dayTotal[d] = total.getInt(d);
+            b.framesOn = rules.optBoolean("framesOn", true);
+            JSONArray allowed = rules.optJSONArray("allowed");
+            if (allowed != null) for (int i = 0; i < allowed.length(); i++) b.allowed.add(allowed.getString(i));
+            JSONArray frames = rules.optJSONArray("frames"), counts = today.optJSONArray("frames");
+            if (frames != null) for (int i = 0; i < frames.length(); i++) {
+                JSONObject o = frames.getJSONObject(i);
+                Budget.Frame f = new Budget.Frame(o.getString("name"), o.getInt("days"), o.getInt("start"), o.getInt("end"));
+                f.total = o.optInt("total", Budget.NO_LIMIT);
+                for (Map.Entry<String, Long> e : longs(o.optString("limits", "{}")).entrySet()) f.limits.put(e.getKey(), e.getValue().intValue());
+                JSONObject count = counts == null ? null : counts.optJSONObject(i);
+                if (count != null) {
+                    f.usedMs.putAll(longs(count.optString("used", "{}")));
+                    for (Map.Entry<String, Long> e : longs(count.optString("extra", "{}")).entrySet()) f.extraMin.put(e.getKey(), e.getValue().intValue());
+                    f.totalExtraMin = count.optInt("totalExtra", 0);
+                }
+                b.frames.add(f);
+            }
+            b.day = today.optString("day", "");
+            b.usedMs.putAll(longs(today.optString("used", "{}")));
+            for (Map.Entry<String, Long> e : longs(today.optString("extra", "{}")).entrySet()) b.extraMin.put(e.getKey(), e.getValue().intValue());
+            b.totalExtraMin = today.optInt("totalExtra", 0);
+        } catch (JSONException e) {
+            android.util.Log.w(Guard.TAG, "stored rules unreadable, some may be missing: " + e.getMessage());
+        }
+        return b;
+    }
+
+    /**
+     * From 0.5.0: the limits per app stay as they are, and the morning pool, if it was on, becomes a time frame. What
+     * the pool had used today is not carried over (it was one number, not per app): the frame starts the day whole.
+     */
+    private Budget migrate() {
         Budget b = new Budget();
         b.day = p.getString("day", "");
         loadLimits(b);
@@ -31,20 +88,16 @@ final class Store {
         for (Map.Entry<String, Long> e : longs(p.getString("extra", "{}")).entrySet()) b.extraMin.put(e.getKey(), e.getValue().intValue());
         try {
             JSONObject part = new JSONObject(p.getString("part", "{}"));
-            b.partDays = part.optInt("days", b.partDays);
-            b.partEnd = part.optInt("end", b.partEnd);
-            b.partMinutes = part.optInt("minutes", 0);
+            b.adoptMorning(morningName, part.optInt("days", Budget.WEEKDAYS), part.optInt("end", 13 * 60), part.optInt("minutes", 0));
         } catch (JSONException e) {
-            android.util.Log.w(Guard.TAG, "stored morning unreadable, starting with it off: " + e.getMessage());
+            android.util.Log.w(Guard.TAG, "stored morning unreadable, not carried over: " + e.getMessage());
         }
-        b.partUsedMs = p.getLong("partUsed", 0);
-        b.partExtraMin = p.getInt("partExtra", 0);
         return b;
     }
 
     /**
-     * The limits, seven per app (Monday first) under "limitsByDay". Up to 0.3 there was one number per app under
-     * "limits": read once as the same limit every day, and left in place so an older version still finds it.
+     * The limits of 0.5.0, seven per app (Monday first) under "limitsByDay". Up to 0.3 there was one number per app
+     * under "limits": read as the same limit every day.
      */
     private void loadLimits(Budget b) {
         String byDay = p.getString("limitsByDay", null);
@@ -65,17 +118,23 @@ final class Store {
     }
 
     void saveBudget(Budget b) {
-        JSONObject limits = new JSONObject(), part = new JSONObject();
+        JSONObject rules = new JSONObject(), today = new JSONObject(), apps = new JSONObject();
+        JSONArray frames = new JSONArray(), counts = new JSONArray();
         try {
-            for (Map.Entry<String, int[]> e : b.limits.entrySet()) limits.put(e.getKey(), new JSONArray(e.getValue()));
-            part.put("days", b.partDays).put("end", b.partEnd).put("minutes", b.partMinutes);
+            for (Map.Entry<String, int[]> e : b.limits.entrySet()) apps.put(e.getKey(), new JSONArray(e.getValue()));
+            for (Budget.Frame f : b.frames) {
+                frames.put(new JSONObject().put("name", f.name).put("days", f.days).put("start", f.start).put("end", f.end)
+                        .put("total", f.total).put("limits", new JSONObject(f.limits)));
+                counts.put(new JSONObject().put("used", new JSONObject(f.usedMs)).put("extra", new JSONObject(f.extraMin)).put("totalExtra", f.totalExtraMin));
+            }
+            rules.put("apps", apps).put("appsOn", b.appsOn).put("dayTotal", new JSONArray(b.dayTotal)).put("framesOn", b.framesOn)
+                    .put("allowed", new JSONArray(b.allowed)).put("frames", frames);
+            today.put("day", b.day).put("used", new JSONObject(b.usedMs)).put("extra", new JSONObject(b.extraMin))
+                    .put("totalExtra", b.totalExtraMin).put("frames", counts);
         } catch (JSONException e) {
-            throw new IllegalStateException(e); // a package name and seven ints always fit in JSON
+            throw new IllegalStateException(e); // names and numbers always fit in JSON
         }
-        p.edit().putString("day", b.day).putString("limitsByDay", limits.toString())
-                .putString("used", new JSONObject(b.usedMs).toString()).putString("extra", new JSONObject(b.extraMin).toString())
-                .putString("part", part.toString()).putLong("partUsed", b.partUsedMs).putInt("partExtra", b.partExtraMin)
-                .apply();
+        p.edit().putInt("schema", 2).putString("rules", rules.toString()).putString("today", today.toString()).apply();
     }
 
     // MARK: - Kids mode: the schedule, and a parent's change that wins until the schedule's next boundary

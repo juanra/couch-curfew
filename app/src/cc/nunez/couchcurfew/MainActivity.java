@@ -33,7 +33,9 @@ import java.util.List;
  * its limit, setup and the PIN. Built in code (no layouts, no AndroidX) and made for the remote.
  */
 public class MainActivity extends Activity {
-    private static final int[] LIMITS = {15, 30, 45, 60, 90, 120, 180};
+    /** The minutes offered for an app's daily limit, for the daily total, and for a time frame's total and its apps. */
+    private static final int[] AMOUNTS = {15, 30, 45, 60, 90, 120, 180}, TOTAL_AMOUNTS = {30, 45, 60, 90, 120, 180, 240};
+    private static final int[] FRAME_TOTALS = {10, 15, 20, 30, 45, 60, 90, 120}, FRAME_AMOUNTS = {10, 15, 20, 30, 45, 60, 90};
 
     // The icon's night palette.
     static final int SKY_TOP = 0xFF2E3375, SKY_BOTTOM = 0xFF14173A;
@@ -43,11 +45,15 @@ public class MainActivity extends Activity {
 
     static final String SETTINGS = "settings";
     private static final String KIDS = "kids", SETUP = "setup", PIN = "pin";
+    /** The screens under the settings; a row that opens one carries its name as its tag. A frame's is FRAME + its index. */
+    private static final String SCHEDULE = "schedule", LIMITS = "limits", APPS = "apps", ALLOWED = "allowed", PARENT = "parent", FRAME = "frame";
 
     private Guard guard;
     private FrameLayout root;
     /** The settings are showing; false is the dashboard. Only true after the PIN. */
     private boolean unlocked;
+    /** Which screen of the settings; empty is the first one. */
+    private String screen = "";
     /** The dashboard's range, an index into Usage.RANGES. */
     private int range;
     private AlertDialog pinDialog;
@@ -73,21 +79,34 @@ public class MainActivity extends Activity {
     @Override protected void onStop() {
         super.onStop();
         unlocked = false;
+        screen = "";
         focusTag = null;
         root.removeAllViews();
         for (AlertDialog dialog : dialogs) dialog.dismiss();
         dialogs.clear();
     }
 
-    /** Back from the settings goes to the dashboard, and locks them. */
+    /** Back goes up one screen, onto the row that opened it; from the first one, to the dashboard, and locks the settings. */
     @Override public void onBackPressed() {
         if (!unlocked) {
             super.onBackPressed();
             return;
         }
-        unlocked = false;
         root.removeAllViews(); // so refresh doesn't put the focus back on the row that had it
-        focusTag = SETTINGS;
+        if (screen.isEmpty()) {
+            unlocked = false;
+            focusTag = SETTINGS;
+        } else {
+            focusTag = screen;
+            screen = screen.startsWith(FRAME) || screen.equals(APPS) ? LIMITS : "";
+        }
+        refresh();
+    }
+
+    private void open(String name) {
+        screen = name;
+        root.removeAllViews();
+        focusTag = null;
         refresh();
     }
 
@@ -127,6 +146,7 @@ public class MainActivity extends Activity {
 
     private void showSettings() {
         unlocked = true;
+        screen = "";
         root.removeAllViews();
         focusTag = KIDS;
         refresh();
@@ -253,17 +273,20 @@ public class MainActivity extends Activity {
         root.removeAllViews();
         root.addView(unlocked ? settings() : new Dashboard(this, guard).build(range));
         View again = focusTag == null ? null : root.findViewWithTag(focusTag);
-        if (again == null) again = root.findViewWithTag(unlocked ? KIDS : "range" + range);
+        if (again == null && !unlocked) again = root.findViewWithTag("range" + range);
         if (again != null) again.requestFocus();
+        else {
+            java.util.ArrayList<View> rows = root.getFocusables(View.FOCUS_DOWN);
+            if (!rows.isEmpty()) rows.get(0).requestFocus(); // the first row of the screen
+        }
     }
 
     /** The settings: what kids mode is doing on the left, and on the right a list to go down with the remote. */
     private View settings() {
-        String today = Guard.today();
-        final boolean kids = guard.store.kidsMode(), ready = guard.serviceEnabled();
+        final boolean kids = guard.store.kidsMode();
 
-        LinearLayout screen = new LinearLayout(this);
-        screen.setClipChildren(false);
+        LinearLayout page = new LinearLayout(this);
+        page.setClipChildren(false);
 
         // Left: the icon, the name and what kids mode is doing now. It stays put while the list scrolls.
         LinearLayout about = new LinearLayout(this);
@@ -281,7 +304,7 @@ public class MainActivity extends Activity {
         hint.setGravity(Gravity.CENTER_HORIZONTAL);
         hint.setMinLines(3); // the text changes with kids mode; the block above must not jump
         about.addView(hint, new LinearLayout.LayoutParams(dp(280), ViewGroup.LayoutParams.WRAP_CONTENT));
-        screen.addView(about, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 2));
+        page.addView(about, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 2));
 
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
@@ -292,8 +315,29 @@ public class MainActivity extends Activity {
         scroll.setClipChildren(false);
         scroll.setClipToPadding(false);
         scroll.addView(list);
-        screen.addView(scroll, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 3));
+        page.addView(scroll, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 3));
 
+        Budget.Frame frame = null;
+        if (screen.startsWith(FRAME)) {
+            int index = Integer.parseInt(screen.substring(FRAME.length()));
+            if (index < guard.budget.frames.size()) frame = guard.budget.frames.get(index);
+            else screen = LIMITS; // the frame is gone
+        }
+        if (frame != null) frameRows(list, frame, kids);
+        else if (screen.equals(SCHEDULE)) scheduleRows(list);
+        else if (screen.equals(LIMITS)) limitsRows(list, kids);
+        else if (screen.equals(APPS)) appsRows(list, kids);
+        else if (screen.equals(ALLOWED)) allowedRows(list);
+        else if (screen.equals(PARENT)) parentRows(list);
+        else mainRows(list, kids);
+        guard.store.saveBudget(guard.budget); // reading today's numbers may have started a new day
+        return page;
+    }
+
+    /** The first screen: kids mode, and a row into each group of settings showing where it stands. */
+    private void mainRows(LinearLayout list, final boolean kids) {
+        boolean ready = guard.serviceEnabled();
+        int allowed = guard.budget.allowed.size();
         // Without the service nothing is enforced or recorded: say so before anything else.
         if (!ready) list.addView(row(SETUP, null, getString(R.string.setup_needed), "", CORAL, () -> setup(null)));
         list.addView(row(KIDS, null, getString(R.string.kids_mode), getString(kids ? R.string.state_on : R.string.state_off),
@@ -302,39 +346,273 @@ public class MainActivity extends Activity {
                     if (!kids && !guard.serviceEnabled()) setup(() -> setKidsMode(true));
                     else setKidsMode(!kids);
                 }));
+        if (kids) list.addView(row("more", null, getString(R.string.more_time), "›", MUTED, this::moreTime));
+        list.addView(row(SCHEDULE, null, getString(R.string.schedule_title), scheduleText(), MUTED, () -> open(SCHEDULE)));
+        list.addView(row(LIMITS, null, getString(R.string.limits_title), limitsText(), MUTED, () -> open(LIMITS)));
+        list.addView(row(ALLOWED, null, getString(R.string.always_allowed), allowed == 0 ? "›" : String.valueOf(allowed), MUTED, () -> open(ALLOWED)));
+        list.addView(row("guideline", null, getString(R.string.guideline_title), guidelineText(), MUTED, this::pickGuideline));
+        list.addView(row(PARENT, null, getString(R.string.parent_setup), "›", MUTED, () -> open(PARENT)));
+    }
 
-        list.addView(listTitle(getString(R.string.schedule_title)));
-        List<Schedule.Window> schedule = guard.store.windows();
-        for (int i = 0; i < schedule.size(); i++) {
-            final int index = i;
-            list.addView(row("window" + i, null, describe(schedule.get(i)), "›", MUTED, () -> windowMenu(index)));
-        }
-        list.addView(row("window+", null, getString(R.string.schedule_add), "", MUTED, () -> editWindow(-1)));
-
-        list.addView(listTitle(getString(R.string.guideline_title)));
-        list.addView(row("guideline", null, getString(R.string.guideline_age), guidelineText(), MUTED, this::pickGuideline));
-
-        // The morning has its own pool, so what the youngest watches before the others are home doesn't use up the afternoon.
-        final Budget budget = guard.budget;
-        list.addView(listTitle(getString(R.string.morning_title) + "  ·  " + days(Budget.WEEKDAYS)));
-        list.addView(row("morning", null, getString(R.string.morning_total), morningText(today, kids), MUTED, this::pickMorning));
-        if (budget.partMinutes > 0) list.addView(row("morningEnd", null, getString(R.string.morning_end), clock(budget.partEnd), MUTED, this::pickMorningEnd));
-
-        list.addView(listTitle(getString(R.string.apps_title)));
-        PackageManager pm = getPackageManager();
-        for (ResolveInfo app : tvApps()) {
-            final String pkg = app.activityInfo.packageName;
-            list.addView(row(pkg, app.loadIcon(pm), guard.label(pkg), limitText(pkg, today, kids), MUTED, () -> pickLimit(pkg)));
-        }
-        guard.store.saveBudget(guard.budget);
-
-        list.addView(listTitle(getString(R.string.app_name)));
-        if (ready) list.addView(row(SETUP, null, getString(R.string.setup_ok), "›", MUTED, () -> setup(null)));
+    private void parentRows(LinearLayout list) {
+        list.addView(listTitle(getString(R.string.parent_setup)));
         list.addView(row(PIN, null, getString(R.string.change_pin), "›", MUTED, () -> newPin(() -> {
             Toast.makeText(this, R.string.pin_changed, Toast.LENGTH_SHORT).show();
             refresh();
         }, null)));
-        return screen;
+        boolean ready = guard.serviceEnabled();
+        list.addView(row(SETUP, null, getString(ready ? R.string.setup_ok : R.string.setup_needed), "›", ready ? MUTED : CORAL, () -> setup(null)));
+    }
+
+    /** "Mon–Fri · 14:00–20:00", with "+1" when there are more windows. */
+    private String scheduleText() {
+        List<Schedule.Window> windows = guard.store.windows();
+        if (windows.isEmpty()) return getString(R.string.state_off);
+        Schedule.Window w = windows.get(0);
+        return describe(w.days, w.start, w.end) + (windows.size() > 1 ? "  +" + (windows.size() - 1) : "");
+    }
+
+    /** The limits that are on: "2 h · Julieta, Tiago · App limits". */
+    private String limitsText() {
+        Budget budget = guard.budget;
+        List<String> parts = new ArrayList<>();
+        Integer total = budget.limit(Budget.TOTAL, Guard.today());
+        if (total != null) parts.add(duration(total * Budget.MINUTE));
+        if (budget.framesOn && !budget.frames.isEmpty()) {
+            List<String> names = new ArrayList<>();
+            for (Budget.Frame f : budget.frames) names.add(f.name);
+            parts.add(String.join(", ", names));
+        }
+        if (budget.appsOn && !budget.limits.isEmpty()) parts.add(getString(R.string.app_limits));
+        return parts.isEmpty() ? getString(R.string.state_off) : String.join("  ·  ", parts);
+    }
+
+    private void scheduleRows(LinearLayout list) {
+        list.addView(listTitle(getString(R.string.schedule_title)));
+        List<Schedule.Window> schedule = guard.store.windows();
+        for (int i = 0; i < schedule.size(); i++) {
+            final int index = i;
+            Schedule.Window w = schedule.get(i);
+            list.addView(row("window" + i, null, describe(w.days, w.start, w.end), "›", MUTED, () -> windowMenu(index)));
+        }
+        list.addView(row("window+", null, getString(R.string.schedule_add), "", MUTED, () -> editWindow(-1)));
+    }
+
+    /** The three kinds of limit. Each one can be off and keeps what was set. */
+    private void limitsRows(LinearLayout list, boolean kids) {
+        final Budget budget = guard.budget;
+        String today = Guard.today();
+        list.addView(listTitle(getString(R.string.limits_title)));
+        list.addView(row(Budget.TOTAL, null, getString(R.string.daily_total), limitText(Budget.TOTAL, today, kids), MUTED, () -> pickLimit(Budget.TOTAL)));
+
+        list.addView(listTitle(getString(R.string.frames_title)));
+        list.addView(note(getString(R.string.frame_note)));
+        if (!budget.frames.isEmpty()) list.addView(toggle("framesOn", getString(R.string.frames_title), budget.framesOn, () -> budget.framesOn = !budget.framesOn));
+        for (int i = 0; i < budget.frames.size(); i++) {
+            final String name = FRAME + i;
+            Budget.Frame f = budget.frames.get(i);
+            String total = f.total < 0 ? "" : "  ·  " + duration(f.total * Budget.MINUTE);
+            list.addView(row(name, null, f.name, describe(f.days, f.start, f.end) + total, MUTED, () -> open(name)));
+        }
+        list.addView(row("frame+", null, getString(R.string.frame_add), "", MUTED, this::addFrame));
+
+        list.addView(listTitle(getString(R.string.app_limits)));
+        String apps = getString(budget.appsOn ? R.string.state_on : R.string.state_off);
+        list.addView(row(APPS, null, getString(R.string.app_limits), apps, MUTED, () -> open(APPS)));
+    }
+
+    private void appsRows(LinearLayout list, boolean kids) {
+        final Budget budget = guard.budget;
+        String today = Guard.today();
+        list.addView(listTitle(getString(R.string.app_limits)));
+        list.addView(note(getString(R.string.app_limits_note)));
+        list.addView(toggle("appsOn", getString(R.string.app_limits), budget.appsOn, () -> budget.appsOn = !budget.appsOn));
+        list.addView(listTitle(getString(R.string.apps_title)));
+        PackageManager pm = getPackageManager();
+        for (ResolveInfo app : tvApps()) {
+            final String pkg = app.activityInfo.packageName;
+            if (budget.allowed.contains(pkg)) continue;
+            list.addView(row(pkg, app.loadIcon(pm), guard.label(pkg), limitText(pkg, today, kids), MUTED, () -> pickLimit(pkg)));
+        }
+    }
+
+    private void allowedRows(LinearLayout list) {
+        final Budget budget = guard.budget;
+        list.addView(listTitle(getString(R.string.always_allowed)));
+        list.addView(note(getString(R.string.always_allowed_note)));
+        PackageManager pm = getPackageManager();
+        for (ResolveInfo app : tvApps()) {
+            final String pkg = app.activityInfo.packageName;
+            final boolean on = budget.allowed.contains(pkg);
+            list.addView(row(pkg, app.loadIcon(pm), guard.label(pkg), on ? "●" : "", MOON, () -> {
+                budget.setAllowed(pkg, !on);
+                changed();
+            }));
+        }
+    }
+
+    /** One time frame: its name, when it runs, its total, and a limit per app that only holds inside it. */
+    private void frameRows(LinearLayout list, final Budget.Frame f, boolean kids) {
+        final Budget budget = guard.budget;
+        list.addView(listTitle(f.name));
+        list.addView(row("name", null, getString(R.string.frame_name), f.name, MUTED, () -> pickName(name -> {
+            f.name = name;
+            changed();
+        })));
+        list.addView(row("hours", null, getString(R.string.frame_hours), describe(f.days, f.start, f.end), MUTED, () -> editFrame(f, false)));
+        String total = getString(R.string.state_off);
+        if (f.total >= 0) {
+            total = duration(f.total * Budget.MINUTE);
+            // The countdown only while this frame is the one running.
+            if (budget.frameAt(Guard.today(), Guard.minute()) == f) {
+                total += "  ·  " + (kids ? left(f.totalRemainingMs()) : getString(R.string.counts_in_kids_mode));
+            }
+        }
+        list.addView(row("total", null, getString(R.string.frame_total), total, MUTED, () -> pickMinutes(f.name + "  ·  " + getString(R.string.frame_total),
+                new int[]{Budget.NO_LIMIT}, new String[]{getString(R.string.state_off)}, FRAME_TOTALS, f.total, minutes -> {
+                    f.total = minutes;
+                    changed();
+                })));
+        list.addView(row("delete", null, getString(R.string.frame_delete), "", CORAL, () ->
+                choose(f.name, new String[]{getString(R.string.frame_delete), getString(android.R.string.cancel)}, -1, which -> {
+                    if (which != 0) return;
+                    budget.frames.remove(f);
+                    screen = LIMITS;
+                    root.removeAllViews();
+                    focusTag = "frame+";
+                    changed();
+                })));
+
+        list.addView(listTitle(getString(R.string.frame_apps)));
+        PackageManager pm = getPackageManager();
+        for (ResolveInfo app : tvApps()) {
+            final String pkg = app.activityInfo.packageName;
+            if (budget.allowed.contains(pkg)) continue;
+            final Integer limit = f.limits.get(pkg);
+            String value = limit == null ? "" : limit == 0 ? getString(R.string.not_allowed) : duration(limit * Budget.MINUTE);
+            list.addView(row(pkg, app.loadIcon(pm), guard.label(pkg), value, MUTED, () -> pickMinutes(guard.label(pkg) + "  ·  " + f.name,
+                    new int[]{Budget.NO_LIMIT, 0}, new String[]{getString(R.string.no_limit), getString(R.string.not_allowed)}, FRAME_AMOUNTS,
+                    limit == null ? Budget.NO_LIMIT : limit, minutes -> {
+                        if (minutes < 0) f.limits.remove(pkg);
+                        else f.limits.put(pkg, minutes);
+                        changed();
+                    })));
+        }
+    }
+
+    /** "12 min left", or that time is up. */
+    private String left(long ms) {
+        long minutes = (ms + Budget.MINUTE - 1) / Budget.MINUTE;
+        return minutes == 0 ? getString(R.string.time_up) : getString(R.string.minutes_left, minutes);
+    }
+
+    /** A row that switches something on or off in place. */
+    private View toggle(String tag, String label, boolean on, final Runnable flip) {
+        return row(tag, null, label, getString(on ? R.string.state_on : R.string.state_off), on ? GREEN : MUTED, () -> {
+            flip.run();
+            changed();
+        });
+    }
+
+    /** A line of context under a section title. */
+    private TextView note(String s) {
+        TextView t = text(s, 14, MUTED, false);
+        t.setPadding(dp(18), 0, dp(18), dp(12));
+        return t;
+    }
+
+    // MARK: - Time frames
+
+    private void addFrame() {
+        if (guard.budget.frames.size() >= Budget.MAX_FRAMES) {
+            Toast.makeText(this, getString(R.string.frame_max, Budget.MAX_FRAMES), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        pickName(name -> editFrame(new Budget.Frame(name, Budget.WEEKDAYS, 6 * 60, 12 * 60), true));
+    }
+
+    private interface Named { void named(String name); }
+
+    /** A few names that fit most homes, or one typed with the TV's keyboard: a kid's name says who the frame is for. */
+    private void pickName(final Named done) {
+        final String[] items = {getString(R.string.frame_morning), getString(R.string.frame_afternoon), getString(R.string.frame_evening),
+                getString(R.string.frame_name_type)};
+        choose(getString(R.string.frame_name), items, -1, which -> {
+            if (which < items.length - 1) {
+                done.named(items[which]);
+                return;
+            }
+            final android.widget.EditText input = new android.widget.EditText(this);
+            input.setSingleLine(true);
+            input.setPadding(dp(24), dp(8), dp(24), dp(12));
+            input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+            input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(20)});
+            dialogs.add(new AlertDialog.Builder(this).setTitle(R.string.frame_name).setView(input)
+                    .setPositiveButton(android.R.string.ok, (d, w) -> {
+                        String name = input.getText().toString().trim();
+                        if (!name.isEmpty()) done.named(name);
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show());
+        });
+    }
+
+    /** Days, then start, then end. Refused if it would overlap another frame: two counts at once is what frames avoid. */
+    private void editFrame(final Budget.Frame f, final boolean isNew) {
+        final Budget budget = guard.budget;
+        pickDays(f.days, days -> pickTime(R.string.frame_start, f.start, 0, start -> pickTime(R.string.frame_end, f.end, 30, end -> {
+            Budget.Frame candidate = new Budget.Frame(f.name, days, start, end), other = budget.overlapping(candidate, f);
+            if (!candidate.valid() || other != null) {
+                Toast.makeText(this, other == null ? getString(R.string.frame_order) : getString(R.string.frame_overlap, other.name), Toast.LENGTH_LONG).show();
+                return;
+            }
+            f.days = days;
+            f.start = start;
+            f.end = end;
+            if (isNew) {
+                budget.frames.add(f);
+                screen = FRAME + (budget.frames.size() - 1);
+                root.removeAllViews();
+                focusTag = null;
+            }
+            changed();
+        })));
+    }
+
+    // MARK: - More time
+
+    /**
+     * More time for today, for an app that some limit holds back: the ones out of time first. One place for it,
+     * whatever limit ran out, because the parent comes here from a kid who is blocked, not from a setting.
+     */
+    private void moreTime() {
+        final String today = Guard.today();
+        final Budget budget = guard.budget;
+        final List<String> pkgs = new ArrayList<>(), values = new ArrayList<>();
+        for (int pass = 0; pass < 2; pass++) {
+            for (ResolveInfo app : tvApps()) {
+                String pkg = app.activityInfo.packageName;
+                long left = budget.remainingMs(pkg, today, Guard.minute());
+                if (left == Long.MAX_VALUE || (left == 0) != (pass == 0)) continue;
+                pkgs.add(pkg);
+                values.add(left(left));
+            }
+        }
+        if (pkgs.isEmpty()) {
+            Toast.makeText(this, R.string.more_time_none, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String[] items = new String[pkgs.size()];
+        for (int i = 0; i < items.length; i++) items[i] = guard.label(pkgs.get(i));
+        choose(getString(R.string.more_time), getString(R.string.more_time_note), items, values.toArray(new String[0]), -1, 0, picked -> {
+            final int[] more = {15, 30, 60};
+            String[] amounts = new String[more.length];
+            for (int i = 0; i < more.length; i++) amounts[i] = getString(R.string.plus_minutes, more[i]);
+            choose(items[picked], amounts, -1, which -> {
+                budget.grantExtra(pkgs.get(picked), more[which], today, Guard.minute());
+                changed();
+            });
+        });
     }
 
     // MARK: - The daily guideline
@@ -363,76 +641,20 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * Under a limit list: the guideline is for the whole day across all apps, and what the other apps already allow
-     * on those days (`days` 0 leaves that out). Null without a guideline.
+     * Under a limit list: what a daily total counts, the guideline for the whole day and, for an app, what the other
+     * apps already allow on those days (`days` 0 leaves that out). Null when there is nothing to say.
      */
-    private String limitNote(String pkg, int days) {
-        String band = guard.store.guideline();
+    private String limitNote(String subject, int days) {
+        boolean total = Budget.TOTAL.equals(subject);
+        String band = guard.store.guideline(), own = total ? getString(R.string.total_note) : null;
         int minutes = Usage.guidelineMinutes(band), others = 0;
-        if (minutes == 0) return null;
+        if (minutes == 0) return own;
         String note = getString(R.string.limit_note, getString(AGES[java.util.Arrays.asList(Usage.BANDS).indexOf(band)]), duration(minutes * Budget.MINUTE));
+        if (total) return own + " " + note;
         if (days != 0) for (String other : guard.budget.limits.keySet()) {
-            if (!other.equals(pkg)) others += Math.max(0, guard.budget.limitOn(other, days == Budget.WEEKEND ? 5 : 0));
+            if (!other.equals(subject)) others += Math.max(0, guard.budget.limitOn(other, days == Budget.WEEKEND ? 5 : 0));
         }
         return others == 0 ? note : note + " " + getString(R.string.limit_note_others, duration(others * Budget.MINUTE));
-    }
-
-    // MARK: - The morning's pool
-
-    /** The pools a morning can have, in minutes; none above the lowest daily guideline. */
-    private static final int[] MORNINGS = {10, 15, 20, 30, 45, 60};
-
-    /** "Off", "20 min" or, while the morning runs, "20 min · 6 min left this morning". */
-    private String morningText(String today, boolean counting) {
-        Budget budget = guard.budget;
-        if (budget.partMinutes <= 0) return getString(R.string.state_off);
-        String amount = getString(R.string.duration_m, budget.partMinutes);
-        if (!budget.inPart(today, Guard.minute())) return amount;
-        long leftMin = (budget.partRemainingMs(today) + Budget.MINUTE - 1) / Budget.MINUTE;
-        return amount + "  ·  " + (counting ? getString(R.string.morning_left, leftMin) : getString(R.string.counts_in_kids_mode));
-    }
-
-    /** The pool: more time for this morning while it runs, off, or a number of minutes. Turning it on asks for its end next. */
-    private void pickMorning() {
-        final String today = Guard.today();
-        final Budget budget = guard.budget;
-        final int n = budget.inPart(today, Guard.minute()) ? 1 : 0;
-        String[] items = new String[MORNINGS.length + 1 + n];
-        if (n == 1) items[0] = getString(R.string.morning_extra);
-        items[n] = getString(R.string.state_off);
-        int checked = budget.partMinutes <= 0 ? n : -1;
-        for (int i = 0; i < MORNINGS.length; i++) {
-            items[i + 1 + n] = getString(R.string.duration_m, MORNINGS[i]);
-            if (budget.partMinutes == MORNINGS[i]) checked = i + 1 + n;
-        }
-        String guideline = limitNote(null, 0);
-        String note = getString(R.string.morning_note) + (guideline == null ? "" : " " + guideline);
-        choose(getString(R.string.morning_title) + "  ·  " + days(Budget.WEEKDAYS), note, items, null, checked, checked, picked -> {
-            int which = picked - n;
-            boolean wasOff = budget.partMinutes <= 0;
-            if (which < 0) budget.grantPartExtra(10, today);
-            else budget.setPart(which == 0 ? 0 : MORNINGS[which - 1], today, Guard.minute());
-            morningChanged();
-            if (wasOff && which > 0) pickMorningEnd();
-        });
-    }
-
-    /** Every half hour from 09:00 to 15:00: later than that is no longer a morning. */
-    private void pickMorningEnd() {
-        final int first = 9 * 60;
-        String[] slots = new String[13];
-        for (int i = 0; i < slots.length; i++) slots[i] = clock(first + i * 30);
-        int current = Math.max(0, Math.min(slots.length - 1, (guard.budget.partEnd - first) / 30));
-        choose(getString(R.string.morning_end), slots, current, which -> {
-            guard.budget.partEnd = first + which * 30;
-            morningChanged();
-        });
-    }
-
-    /** The end of the morning is one of the moments the alarm wakes up for. */
-    private void morningChanged() {
-        guard.scheduleAlarm();
-        changed();
     }
 
     /** A section title over rows: in line with their text, and closer to its own rows than to the ones above. */
@@ -442,22 +664,22 @@ public class MainActivity extends Activity {
         return t;
     }
 
-    /** "60 min a day · 12 min left today": the app's limit and where today stands. */
-    private String limitText(String pkg, String today, boolean counting) {
-        if (!guard.budget.limits.containsKey(pkg)) return getString(R.string.no_limit);
+    /** "60 min a day · 12 min left today": a daily limit (an app's, or the total's) and where today stands. */
+    private String limitText(String subject, String today, boolean counting) {
+        Budget budget = guard.budget;
+        String none = getString(Budget.TOTAL.equals(subject) ? R.string.state_off : R.string.no_limit);
+        if (budget.limitOn(subject, 0) < 0 && budget.limitOn(subject, 5) < 0) return none;
         // With different limits by day, say which days today's one belongs to.
-        String days = guard.budget.split(pkg) ? days(Budget.weekday(today) < 5 ? Budget.WEEKDAYS : Budget.WEEKEND) + "  ·  " : "";
-        Integer limit = guard.budget.limit(pkg, today);
-        if (limit == null) return days + getString(R.string.no_limit);
-        if (limit == 0 && extra(pkg) == 0) return days + getString(R.string.not_allowed);
-        long leftMin = (guard.budget.remainingMs(pkg, today) + Budget.MINUTE - 1) / Budget.MINUTE;
-        // In the morning the pool decides, and its countdown is on the morning's row: here, only the app's own limit.
-        String state = guard.budget.pooled(pkg, today, Guard.minute()) ? null : !counting ? getString(R.string.counts_in_kids_mode)
-                : leftMin == 0 ? getString(R.string.out_today) : getString(R.string.left_today, leftMin);
-        // "Mon–Fri 30 min" already says it is by day; the longer "30 min a day" would push the app's name out of the row.
+        String group = days(Budget.weekday(today) < 5 ? Budget.WEEKDAYS : Budget.WEEKEND), days = budget.split(subject) ? group + "  ·  " : "";
+        Integer limit = budget.limit(subject, today);
+        if (limit == null) return days + none;
+        long leftMs = budget.ownRemainingMs(subject, today), leftMin = (leftMs + Budget.MINUTE - 1) / Budget.MINUTE;
+        if (limit == 0 && leftMs == 0) return days + getString(R.string.not_allowed);
+        String state = !counting ? getString(R.string.counts_in_kids_mode) : leftMin == 0 ? getString(R.string.out_today) : getString(R.string.left_today, leftMin);
+        // "Mon–Fri 30 min" already says it is by day; the longer "30 min a day" would push the name out of the row.
         String amount = limit == 0 ? getString(R.string.not_allowed) : days.isEmpty() ? getString(R.string.minutes, limit)
-                : days(Budget.weekday(today) < 5 ? Budget.WEEKDAYS : Budget.WEEKEND) + " " + getString(R.string.duration_m, limit);
-        return (limit == 0 ? days : "") + amount + (state == null ? "" : "  ·  " + state);
+                : group + " " + getString(R.string.duration_m, limit);
+        return (limit == 0 ? days : "") + amount + "  ·  " + state;
     }
 
     /** One line of the list: an optional icon, the name on the left and its value on the right. */
@@ -500,25 +722,9 @@ public class MainActivity extends Activity {
         return new ColorStateList(new int[][]{{android.R.attr.state_focused}, {}}, new int[]{focused, normal});
     }
 
-    private int extra(String pkg) {
-        Integer extra = guard.budget.extraMin.get(pkg);
-        return extra == null ? 0 : extra;
-    }
-
-    /** The apps on the TV's launcher, by name; not this app, nor the home screen (limiting it would send home to home). */
+    /** The apps a limit can be set for, by name. */
     private List<ResolveInfo> tvApps() {
-        PackageManager pm = getPackageManager();
-        ResolveInfo home = pm.resolveActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0);
-        String homePkg = home != null && home.activityInfo != null ? home.activityInfo.packageName : "";
-        List<ResolveInfo> apps = new ArrayList<>();
-        List<String> seen = new ArrayList<>();
-        Intent tv = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
-        for (ResolveInfo r : pm.queryIntentActivities(tv, 0)) {
-            String p = r.activityInfo.packageName;
-            if (p.equals(Guard.PKG) || p.equals(homePkg) || seen.contains(p)) continue;
-            seen.add(p);
-            apps.add(r);
-        }
+        List<ResolveInfo> apps = guard.tvApps();
         Collections.sort(apps, (a, b) -> guard.label(a.activityInfo.packageName).compareToIgnoreCase(guard.label(b.activityInfo.packageName)));
         return apps;
     }
@@ -531,85 +737,85 @@ public class MainActivity extends Activity {
                 + java.time.DayOfWeek.of(week ? 5 : 7).getDisplayName(java.time.format.TextStyle.SHORT, locale);
     }
 
-    /** "No limit", "Not allowed in kids mode" or "30 min a day". */
-    private String limitName(int minutes) {
-        return minutes < 0 ? getString(R.string.no_limit) : minutes == 0 ? getString(R.string.not_allowed) : getString(R.string.minutes, minutes);
+    /** "No limit" ("Off" for the total), "Not allowed in kids mode" or "30 min a day". */
+    private String limitName(String subject, int minutes) {
+        if (minutes < 0) return getString(Budget.TOTAL.equals(subject) ? R.string.state_off : R.string.no_limit);
+        return minutes == 0 ? getString(R.string.not_allowed) : getString(R.string.minutes, minutes);
+    }
+
+    private String subjectName(String subject) {
+        return Budget.TOTAL.equals(subject) ? getString(R.string.daily_total) : guard.label(subject);
     }
 
     /**
-     * An app's limit. With one limit for every day: more time for today, a way into different limits for the weekend,
-     * then the limits to pick from. With different limits already: the two groups of days, each opening its own list.
+     * A daily limit: an app's, or the total's under Budget.TOTAL. With one limit for every day: a way into different
+     * limits for the weekend, then the limits to pick from. With different limits already: the two groups of days,
+     * each opening its own list.
      */
-    private void pickLimit(final String pkg) {
-        pickLimit(pkg, -1);
+    private void pickLimit(final String subject) {
+        pickLimit(subject, -1);
     }
 
     /** `focus` is the row to start on in the two-group panel, -1 for the first. */
-    private void pickLimit(final String pkg, int focus) {
-        final String today = Guard.today();
+    private void pickLimit(final String subject, int focus) {
         final Budget budget = guard.budget;
-        // In the morning "+30 min today" would add to the afternoon unseen; the morning's row has its own extra.
-        final int extra = budget.limit(pkg, today) != null && !budget.pooled(pkg, today, Guard.minute()) ? 1 : 0;
-        if (budget.split(pkg) || focus >= 0) {
-            String[] items = new String[3 + extra], values = new String[3 + extra];
-            if (extra == 1) items[0] = getString(R.string.extra_today);
-            items[extra] = days(Budget.WEEKDAYS);
-            values[extra] = limitName(budget.limitOn(pkg, 0));
-            items[extra + 1] = days(Budget.WEEKEND);
-            values[extra + 1] = limitName(budget.limitOn(pkg, 5));
-            items[extra + 2] = getString(R.string.same_every_day);
-            choose(guard.label(pkg), limitNote(pkg, 0), items, values, -1, focus < 0 ? extra : Math.min(focus + extra, items.length - 1), picked -> {
-                int which = picked - extra;
-                if (which < 0) {
-                    budget.grantExtra(pkg, 30, today);
-                    changed();
-                } else if (which == 2) {
-                    budget.setLimit(pkg, budget.limitOn(pkg, 0));
-                    changed();
-                } else pickLimit(pkg, which == 0 ? Budget.WEEKDAYS : Budget.WEEKEND, 1); // back on the weekend row: next to set, or the one just set
-            });
+        if (!budget.split(subject) && focus < 0) {
+            pickLimit(subject, Budget.ALL_DAYS, -1);
             return;
         }
-        // The first choice of a group seeds the other with what the app had, so only the one that differs needs setting.
-        String[] items = new String[extra + 1];
-        if (extra == 1) items[0] = getString(R.string.extra_today);
-        items[extra] = getString(R.string.different_weekends);
-        pickLimit(pkg, Budget.ALL_DAYS, -1, items);
-    }
-
-    private void pickLimit(final String pkg, final int days, final int next) {
-        pickLimit(pkg, days, next, new String[0]);
+        String[] items = {days(Budget.WEEKDAYS), days(Budget.WEEKEND), getString(R.string.same_every_day)};
+        String[] values = {limitName(subject, budget.limitOn(subject, 0)), limitName(subject, budget.limitOn(subject, 5)), null};
+        choose(subjectName(subject), limitNote(subject, 0), items, values, -1, Math.max(0, focus), which -> {
+            if (which == 2) {
+                budget.setLimit(subject, budget.limitOn(subject, 0));
+                changed();
+            } else pickLimit(subject, which == 0 ? Budget.WEEKDAYS : Budget.WEEKEND, 1); // back on the weekend row: next to set, or the one just set
+        });
     }
 
     /**
-     * The list of limits for `days`. `first` are rows shown before it: "+30 min today" when there is one to add to,
-     * and "Different on weekends". `next` is the row of the two-group panel to come back to, -1 to close.
+     * The list of limits for `days`. For every day it starts with "Different on weekends"; the first choice of a group
+     * seeds the other with what there was, so only the one that differs needs setting. `next` is the row of the
+     * two-group panel to come back to, -1 to close.
      */
-    private void pickLimit(final String pkg, final int days, final int next, final String[] first) {
-        final String today = Guard.today();
-        final int n = first.length;
-        int current = guard.budget.limitOn(pkg, days == Budget.WEEKEND ? 5 : 0);
-        String[] items = new String[LIMITS.length + 2 + n];
-        System.arraycopy(first, 0, items, 0, n);
-        items[n] = getString(R.string.no_limit);
-        items[n + 1] = getString(R.string.not_allowed);
-        int checked = current < 0 ? n : current == 0 ? n + 1 : -1;
-        for (int i = 0; i < LIMITS.length; i++) {
-            items[i + 2 + n] = getString(R.string.minutes, LIMITS[i]);
-            if (current == LIMITS[i]) checked = i + 2 + n;
+    private void pickLimit(final String subject, final int days, final int next) {
+        final boolean total = Budget.TOTAL.equals(subject);
+        final int[] amounts = total ? TOTAL_AMOUNTS : AMOUNTS;
+        // Before the amounts: "Different on weekends", no limit and, for an app, not allowed.
+        final int n = days == Budget.ALL_DAYS ? 1 : 0, fixed = total ? 1 : 2;
+        int current = guard.budget.limitOn(subject, days == Budget.WEEKEND ? 5 : 0);
+        String[] items = new String[amounts.length + fixed + n];
+        if (n == 1) items[0] = getString(R.string.different_weekends);
+        items[n] = limitName(subject, Budget.NO_LIMIT);
+        if (!total) items[n + 1] = getString(R.string.not_allowed);
+        int checked = current < 0 ? n : current == 0 && !total ? n + 1 : -1;
+        for (int i = 0; i < amounts.length; i++) {
+            items[i + fixed + n] = getString(R.string.minutes, amounts[i]);
+            if (current == amounts[i]) checked = i + fixed + n;
         }
-        String title = guard.label(pkg) + (days == Budget.ALL_DAYS ? "" : "  ·  " + days(days));
-        choose(title, limitNote(pkg, days), items, null, checked, checked, picked -> {
+        String title = subjectName(subject) + (days == Budget.ALL_DAYS ? "" : "  ·  " + days(days));
+        choose(title, limitNote(subject, days), items, null, checked, checked, picked -> {
             int which = picked - n;
-            if (which == -1) {
-                pickLimit(pkg, 0); // "Different on weekends": the two groups, starting from the same limit
+            if (which < 0) {
+                pickLimit(subject, 0); // "Different on weekends": the two groups, starting from the same limit
                 return;
             }
-            if (which < 0) guard.budget.grantExtra(pkg, 30, today);
-            else guard.budget.setLimit(pkg, days, which == 0 ? Budget.NO_LIMIT : which == 1 ? 0 : LIMITS[which - 2]);
+            guard.budget.setLimit(subject, days, which == 0 ? Budget.NO_LIMIT : which < fixed ? 0 : amounts[which - fixed]);
             changed();
-            if (next >= 0) pickLimit(pkg, next);
+            if (next >= 0) pickLimit(subject, next);
         });
+    }
+
+    /** A number of minutes from a list; `fixed` are the choices before the amounts, such as off or not allowed. */
+    private void pickMinutes(String title, final int[] fixed, String[] fixedNames, final int[] amounts, int current, final Chosen done) {
+        String[] items = new String[fixed.length + amounts.length];
+        int checked = -1;
+        for (int i = 0; i < items.length; i++) {
+            int minutes = i < fixed.length ? fixed[i] : amounts[i - fixed.length];
+            items[i] = i < fixed.length ? fixedNames[i] : duration(minutes * Budget.MINUTE);
+            if (minutes == current) checked = i;
+        }
+        choose(title, items, checked, which -> done.chosen(which < fixed.length ? fixed[which] : amounts[which - fixed.length]));
     }
 
     private interface Chosen { void chosen(int which); }
@@ -679,8 +885,10 @@ public class MainActivity extends Activity {
         dialog.getWindow().setLayout(dp(widthDp), ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
+    /** A rule changed: a time frame's hours are among the moments the alarm wakes up for. */
     private void changed() {
         guard.store.saveBudget(guard.budget);
+        guard.scheduleAlarm();
         guard.reconcile(null);
         refresh();
     }
@@ -697,22 +905,22 @@ public class MainActivity extends Activity {
     }
 
     /** "Mon–Fri · 14:00–20:00": a run of days as a range, otherwise the days one by one. */
-    private String describe(Schedule.Window w) {
+    private String describe(int mask, int start, int end) {
         java.time.format.TextStyle style = java.time.format.TextStyle.SHORT;
         java.util.Locale locale = java.util.Locale.getDefault();
         String days;
-        if (w.days == Schedule.ALL_DAYS) days = getString(R.string.every_day);
+        if (mask == Schedule.ALL_DAYS) days = getString(R.string.every_day);
         else {
-            int first = Integer.numberOfTrailingZeros(w.days), last = 31 - Integer.numberOfLeadingZeros(w.days);
-            boolean run = Integer.bitCount(w.days) == last - first + 1 && last > first;
+            int first = Integer.numberOfTrailingZeros(mask), last = 31 - Integer.numberOfLeadingZeros(mask);
+            boolean run = Integer.bitCount(mask) == last - first + 1 && last > first;
             if (run) days = java.time.DayOfWeek.of(first + 1).getDisplayName(style, locale) + "–" + java.time.DayOfWeek.of(last + 1).getDisplayName(style, locale);
             else {
                 StringBuilder b = new StringBuilder();
-                for (int d = 0; d < 7; d++) if ((w.days & (1 << d)) != 0) b.append(b.length() > 0 ? ", " : "").append(java.time.DayOfWeek.of(d + 1).getDisplayName(style, locale));
+                for (int d = 0; d < 7; d++) if ((mask & (1 << d)) != 0) b.append(b.length() > 0 ? ", " : "").append(java.time.DayOfWeek.of(d + 1).getDisplayName(style, locale));
                 days = b.toString();
             }
         }
-        return days + "  ·  " + clock(w.start) + "–" + clock(w.end);
+        return days + "  ·  " + clock(start) + "–" + clock(end);
     }
 
     static String clock(int minutes) {
@@ -720,7 +928,8 @@ public class MainActivity extends Activity {
     }
 
     private void windowMenu(final int index) {
-        choose(describe(guard.store.windows().get(index)), new String[]{getString(R.string.schedule_edit), getString(R.string.schedule_delete)}, -1, which -> {
+        Schedule.Window shown = guard.store.windows().get(index);
+        choose(describe(shown.days, shown.start, shown.end), new String[]{getString(R.string.schedule_edit), getString(R.string.schedule_delete)}, -1, which -> {
             if (which == 0) editWindow(index);
             else {
                 List<Schedule.Window> all = guard.store.windows();
@@ -733,11 +942,25 @@ public class MainActivity extends Activity {
     /** Days, then start, then end; `index` -1 adds a window. */
     private void editWindow(final int index) {
         final List<Schedule.Window> all = guard.store.windows();
-        Schedule.Window old = index >= 0 ? all.get(index) : new Schedule.Window(Schedule.WEEKDAYS, 14 * 60, 20 * 60);
+        final Schedule.Window old = index >= 0 ? all.get(index) : new Schedule.Window(Schedule.WEEKDAYS, 14 * 60, 20 * 60);
+        pickDays(old.days, days -> pickTime(R.string.schedule_start, old.start, 0, start -> pickTime(R.string.schedule_end, old.end, 0, end -> {
+            if (start == end) {
+                Toast.makeText(this, R.string.schedule_same, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Schedule.Window window = new Schedule.Window(days, start, end);
+            if (index >= 0) all.set(index, window);
+            else all.add(window);
+            saveWindows(all);
+        })));
+    }
+
+    /** The days of the week to tick, for a schedule window or a time frame. */
+    private void pickDays(int current, final Chosen done) {
         final boolean[] checked = new boolean[7];
         String[] names = new String[7];
         for (int d = 0; d < 7; d++) {
-            checked[d] = (old.days & (1 << d)) != 0;
+            checked[d] = (current & (1 << d)) != 0;
             names[d] = java.time.DayOfWeek.of(d + 1).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault());
         }
         dialogs.add(new AlertDialog.Builder(this).setTitle(R.string.schedule_days)
@@ -745,33 +968,18 @@ public class MainActivity extends Activity {
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
                     int days = 0;
                     for (int i = 0; i < 7; i++) if (checked[i]) days |= 1 << i;
-                    if (days == 0) {
-                        Toast.makeText(this, R.string.schedule_no_days, Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    final int pickedDays = days;
-                    pickTime(R.string.schedule_start, old.start, start -> pickTime(R.string.schedule_end, old.end, end -> {
-                        if (start == end) {
-                            Toast.makeText(this, R.string.schedule_same, Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        Schedule.Window window = new Schedule.Window(pickedDays, start, end);
-                        if (index >= 0) all.set(index, window);
-                        else all.add(window);
-                        saveWindows(all);
-                    }));
+                    if (days == 0) Toast.makeText(this, R.string.schedule_no_days, Toast.LENGTH_SHORT).show();
+                    else done.chosen(days);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show());
     }
 
-    private interface TimePicked { void picked(int minutes); }
-
-    /** Every half hour in a list: easier with the remote than the clock dial. */
-    private void pickTime(int title, int current, final TimePicked done) {
+    /** Every half hour in a list, from `first` (30 for an end that can be midnight): easier with the remote than the clock dial. */
+    private void pickTime(int title, int current, final int first, final Chosen done) {
         String[] slots = new String[48];
-        for (int i = 0; i < 48; i++) slots[i] = clock(i * 30);
-        choose(getString(title), slots, Math.min(47, current / 30), which -> done.picked(which * 30));
+        for (int i = 0; i < 48; i++) slots[i] = clock(first + i * 30);
+        choose(getString(title), slots, Math.max(0, Math.min(47, (current - first) / 30)), which -> done.chosen(first + which * 30));
     }
 
     private void saveWindows(List<Schedule.Window> windows) {

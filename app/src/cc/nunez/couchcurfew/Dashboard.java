@@ -157,12 +157,18 @@ final class Dashboard {
         }
         Budget budget = guard.budget;
         String day = Guard.today();
-        if (days == 1 && budget.partMinutes > 0 && (budget.partDays & (1 << Budget.weekday(day))) != 0) {
-            // From the pool's own counter, so it reads the same as the settings; the guideline above is the whole day.
-            TextView morning = a.text(a.getString(R.string.morning_today, a.duration(budget.partUsedMs(day)),
-                    a.duration((budget.partMinutes + budget.partExtraMin) * Budget.MINUTE)), 16, MainActivity.MUTED, false);
-            morning.setPadding(0, 0, 0, a.dp(4));
-            left.addView(morning);
+        // The totals that are counting, from their own counters so they read the same as the settings.
+        Budget.Frame frame = days == 1 ? budget.frameAt(day, Guard.minute()) : null;
+        Integer dayTotal = days == 1 ? budget.limit(Budget.TOTAL, day) : null;
+        java.util.List<String> totals = new java.util.ArrayList<>();
+        if (frame != null && frame.total >= 0) totals.add(a.getString(R.string.of_total, frame.name, a.duration(frame.totalUsedMs()),
+                a.duration((frame.total + frame.totalExtraMin) * Budget.MINUTE)));
+        if (dayTotal != null) totals.add(a.getString(R.string.of_total, a.getString(R.string.daily_total), a.duration(budget.totalUsedMs(day)),
+                a.duration((dayTotal + budget.totalExtraMin) * Budget.MINUTE)));
+        for (String line : totals) {
+            TextView t = a.text(line, 16, MainActivity.MUTED, false);
+            t.setPadding(0, 0, 0, a.dp(4));
+            left.addView(t);
         }
         if (days > 1) {
             String text = guide > 0 ? a.getString(R.string.daily_average_kids, a.duration(total / days), a.duration(kidsTotal / days))
