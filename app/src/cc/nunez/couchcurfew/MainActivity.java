@@ -963,16 +963,51 @@ public class MainActivity extends Activity {
             checked[d] = (current & (1 << d)) != 0;
             names[d] = java.time.DayOfWeek.of(d + 1).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault());
         }
-        dialogs.add(new AlertDialog.Builder(this).setTitle(R.string.schedule_days)
-                .setMultiChoiceItems(names, checked, (d, which, on) -> checked[which] = on)
-                .setPositiveButton(android.R.string.ok, (d, w) -> {
-                    int days = 0;
-                    for (int i = 0; i < 7; i++) if (checked[i]) days |= 1 << i;
-                    if (days == 0) Toast.makeText(this, R.string.schedule_no_days, Toast.LENGTH_SHORT).show();
-                    else done.chosen(days);
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show());
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(8), dp(20), dp(8), dp(12));
+        box.setBackground(panel());
+        TextView heading = text(getString(R.string.schedule_days), 20, Color.WHITE, true);
+        heading.setPadding(dp(30), 0, dp(30), dp(14));
+        box.addView(heading);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        list.setPadding(dp(12), dp(4), dp(12), 0);
+        list.setClipChildren(false);
+        list.setClipToPadding(false);
+        final View[] rows = new View[7];
+        for (int d = 0; d < 7; d++) {
+            final int which = d;
+            rows[d] = row("day" + d, null, names[d], checked[d] ? "●" : "", MOON, () -> {
+                checked[which] = !checked[which];
+                ViewGroup r = (ViewGroup) rows[which];
+                ((TextView) r.getChildAt(r.getChildCount() - 1)).setText(checked[which] ? "●" : "");
+            });
+            list.addView(rows[d]);
+        }
+        // Nothing left to scroll under Sunday, or the ScrollView spends a press of Down on it before the focus leaves.
+        ((LinearLayout.LayoutParams) rows[6].getLayoutParams()).bottomMargin = 0;
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(list);
+        // Five days show at once so the row that confirms always stays on screen under them.
+        box.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(5 * 64 - 4)));
+        final AlertDialog dialog = new AlertDialog.Builder(this).setView(box).create();
+        // The system's own "OK", so it is translated in every language the TV has.
+        View confirm = row("days_ok", null, getString(android.R.string.ok), "›", MUTED, () -> {
+            int days = 0;
+            for (int i = 0; i < 7; i++) if (checked[i]) days |= 1 << i;
+            if (days == 0) {
+                Toast.makeText(this, R.string.schedule_no_days, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            dialog.dismiss();
+            done.chosen(days);
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(dp(12), dp(8), dp(12), 0);
+        box.addView(confirm, lp);
+        showPanel(dialog, 440);
+        rows[0].requestFocus();
     }
 
     /** Every half hour in a list, from `first` (30 for an end that can be midnight): easier with the remote than the clock dial. */
